@@ -592,6 +592,13 @@
             </div>
 
 	            <div style="margin-top: auto; padding-top:20px; border-top: 1px solid var(--border-color);">
+                <button class="btn-secondary" style="width:100%; margin-bottom:10px;" onclick="exportProjectAsJson()">
+                    Save Project (JSON)
+                </button>
+                <button class="btn-secondary" style="width:100%; margin-bottom:10px;" onclick="triggerProjectImport()">
+                    Load Project (JSON)
+                </button>
+                <input type="file" id="projectImportInput" accept="application/json,.json" class="hidden" onchange="handleProjectUpload(this)">
                 <button id="exportBtn" class="btn-secondary" style="width:100%; margin-bottom:10px;" onclick="exportShowAsHtml()">
                     Export HTML
                 </button>
@@ -776,11 +783,12 @@
          */
         let awards = [];
         let currentAwardId = null;
-        let showSettings = {
+        const defaultShowSettings = {
             startMenu: false,
             exportStartTitle: "Start Show",
             exportStartButton: "Start Show"
         };
+        let showSettings = { ...defaultShowSettings };
         
         // Player State
         let playerState = {
@@ -807,10 +815,9 @@
 
         /* --- EDITOR LOGIC --- */
 
-        function createNewAward() {
-            const newId = Date.now().toString();
-            const newAward = {
-                id: newId,
+        function buildDefaultAward(id) {
+            return {
+                id,
                 title: "New Category",
                 slideType: "award",
                 categoryLine: "And the award for",
@@ -828,6 +835,11 @@
                 kenBurnsDuration: 12,
                 kenBurnsIntensity: 20
             };
+        }
+
+        function createNewAward() {
+            const newId = Date.now().toString();
+            const newAward = buildDefaultAward(newId);
             awards.push(newAward);
             renderList();
             selectAward(newId);
@@ -939,8 +951,57 @@
             reader.onload = function(e) {
                 updateCurrentAward('image', e.target.result);
                 selectAward(currentAwardId); // Refresh preview
-            }
+            };
             reader.readAsDataURL(file);
+        }
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error("File read failed"));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function fileNameToTitle(fileName) {
+            if (!fileName) return "New Category";
+            const base = fileName.replace(/\.[^/.]+$/, "");
+            const trimmed = base.trim();
+            return trimmed || "New Category";
+        }
+
+        function createAwardFromImageFile(file, dataUrl) {
+            const newId = Date.now().toString() + Math.random().toString(16).slice(2, 6);
+            const newAward = buildDefaultAward(newId);
+            newAward.title = fileNameToTitle(file?.name);
+            newAward.image = dataUrl;
+            awards.push(newAward);
+            return newAward.id;
+        }
+
+        async function handleImageFiles(files) {
+            const fileList = Array.from(files || []).filter(file => file && file.type && file.type.startsWith("image/"));
+            if (fileList.length === 0) return;
+
+            if (fileList.length === 1) {
+                handleImageFile(fileList[0]);
+                return;
+            }
+
+            let lastId = null;
+            for (const file of fileList) {
+                try {
+                    const dataUrl = await readFileAsDataURL(file);
+                    lastId = createAwardFromImageFile(file, dataUrl);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+
+            renderList();
+            if (lastId) selectAward(lastId);
+            showToast(`Created ${fileList.length} slides.`);
         }
 
         /* --- FRAMING CONTROLS --- */
@@ -960,8 +1021,8 @@
             container.addEventListener('drop', (e) => {
                 e.preventDefault();
                 container.classList.remove('drag-over');
-                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    handleImageFile(e.dataTransfer.files[0]);
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleImageFiles(e.dataTransfer.files);
                 }
             });
 
@@ -1017,6 +1078,64 @@
             return Math.min(Math.max(value, min), max);
         }
 
+        function normalizeText(value, fallback = "") {
+            return typeof value === 'string' ? value : fallback;
+        }
+
+        function normalizeNumber(value, fallback, min, max) {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return fallback;
+            if (min === undefined && max === undefined) return n;
+            return clampNumber(n, min ?? n, max ?? n);
+        }
+
+        function normalizeTransform(transform) {
+            const base = { x: 0, y: 0, scale: 1 };
+            const raw = transform && typeof transform === 'object' ? transform : {};
+            const x = normalizeNumber(raw.x, base.x);
+            const y = normalizeNumber(raw.y, base.y);
+            const scale = clampNumber(normalizeNumber(raw.scale, base.scale), 0.5, 3);
+            return { x, y, scale };
+        }
+
+        function normalizeAward(source, index) {
+            const id = normalizeText(source?.id, `${Date.now()}-${index}`);
+            const base = buildDefaultAward(id);
+            const slideType = source?.slideType === 'photo' ? 'photo' : 'award';
+            const kenBurnsModes = new Set([
+                "off",
+                "zoom-in",
+                "zoom-out",
+                "pan-left-right",
+                "pan-right-left",
+                "pan-up-down",
+                "pan-down-up",
+                "diagonal-up-right",
+                "diagonal-down-left"
+            ]);
+            const kenBurnsMode = kenBurnsModes.has(source?.kenBurnsMode) ? source.kenBurnsMode : base.kenBurnsMode;
+
+            return {
+                ...base,
+                title: normalizeText(source?.title, base.title),
+                slideType,
+                categoryLine: normalizeText(source?.categoryLine, base.categoryLine),
+                subLine: normalizeText(source?.subLine, base.subLine),
+                winner: normalizeText(source?.winner, base.winner),
+                winnerColor: normalizeText(source?.winnerColor, base.winnerColor),
+                revealText: normalizeText(source?.revealText, base.revealText),
+                nextText: normalizeText(source?.nextText, base.nextText),
+                overlayText: normalizeText(source?.overlayText, base.overlayText),
+                overlayDelay: clampNumber(normalizeNumber(source?.overlayDelay, base.overlayDelay), 0, 6),
+                overlayDuration: clampNumber(normalizeNumber(source?.overlayDuration, base.overlayDuration), 1, 10),
+                image: normalizeText(source?.image, base.image),
+                transform: normalizeTransform(source?.transform),
+                kenBurnsMode,
+                kenBurnsDuration: clampNumber(normalizeNumber(source?.kenBurnsDuration, base.kenBurnsDuration), 6, 24),
+                kenBurnsIntensity: clampNumber(normalizeNumber(source?.kenBurnsIntensity, base.kenBurnsIntensity), 0, 60)
+            };
+        }
+
         function setOverlayDelay(val) {
             const v = clampNumber(parseFloat(val) || 0, 0, 6);
             updateCurrentAward('overlayDelay', v);
@@ -1062,6 +1181,15 @@
             if (startTitleEl) startTitleEl.value = showSettings.exportStartTitle || "Start Show";
             const startButtonEl = document.getElementById('inputExportStartButton');
             if (startButtonEl) startButtonEl.value = showSettings.exportStartButton || "Start Show";
+        }
+
+        function normalizeShowSettings(data) {
+            if (!data || typeof data !== 'object') return { ...defaultShowSettings };
+            return {
+                startMenu: !!data.startMenu,
+                exportStartTitle: normalizeText(data.exportStartTitle, defaultShowSettings.exportStartTitle),
+                exportStartButton: normalizeText(data.exportStartButton, defaultShowSettings.exportStartButton)
+            };
         }
 
         function renderMenu() {
@@ -1516,6 +1644,80 @@
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function downloadFile(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function generateProjectFilename() {
+            const d = new Date();
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `awards-project-${yyyy}-${mm}-${dd}.json`;
+        }
+
+        function exportProjectAsJson() {
+            const payload = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                awards,
+                showSettings
+            };
+            const json = JSON.stringify(payload, null, 2);
+            const filename = generateProjectFilename();
+            downloadFile(filename, json, "application/json;charset=utf-8");
+            showToast("Project saved as JSON.");
+        }
+
+        function triggerProjectImport() {
+            const input = document.getElementById('projectImportInput');
+            if (input) input.click();
+        }
+
+        function handleProjectUpload(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            input.value = "";
+            handleProjectFile(file);
+        }
+
+        function handleProjectFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    applyProjectData(data);
+                    showToast("Project loaded.");
+                } catch (err) {
+                    console.error(err);
+                    showToast("Invalid JSON file.");
+                }
+            };
+            reader.onerror = () => showToast("Failed to read file.");
+            reader.readAsText(file);
+        }
+
+        function applyProjectData(data) {
+            const rawAwards = Array.isArray(data?.awards) ? data.awards : [];
+            awards = rawAwards.map((award, index) => normalizeAward(award, index));
+            showSettings = normalizeShowSettings(data?.showSettings);
+
+            if (awards.length === 0) {
+                createNewAward();
+            } else {
+                selectAward(awards[0].id);
+            }
+            syncShowSettingsUI();
         }
 
         function safeJsonStringify(obj) {

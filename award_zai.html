@@ -152,6 +152,8 @@
         }
         .award-item:hover { border-color: var(--border-color); }
         .award-item.active { border-color: var(--accent-color); }
+        .award-item.drag-over { border-color: var(--accent-color); }
+        .award-item.dragging { opacity: 0.6; }
         .award-item h4 { font-weight: 400; margin-bottom: 5px; font-size: 0.95rem; }
         .award-item p { font-size: 0.75rem; color: var(--text-secondary); }
         .delete-btn {
@@ -217,6 +219,20 @@
             padding: 5px 10px;
             border-radius: 20px;
             pointer-events: none;
+        }
+        .range-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .range-row input[type=range] { flex: 1; }
+        .range-row input[type=number] {
+            width: 90px;
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 10px;
+            font-family: var(--font-main);
         }
 
         /* Right Sidebar: Controls */
@@ -384,16 +400,19 @@
                 0 2px 6px rgba(0,0,0,0.85),
                 0 0 18px rgba(255,255,255,0.55),
                 0 0 36px rgba(255,255,255,0.35);
-            background: rgba(0,0,0,0.45);
-            padding: 10px 18px;
-            border-radius: 6px;
-            backdrop-filter: blur(4px);
             opacity: 0;
+            visibility: hidden;
             transition: opacity 0.8s ease-out;
             max-width: 90%;
             pointer-events: none;
         }
-        .photo-overlay.visible { opacity: 1; }
+        .photo-overlay.visible { opacity: 1; visibility: visible; }
+        .photo-overlay.has-text {
+            background: rgba(0,0,0,0.45);
+            padding: 10px 18px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+        }
         .player-image {
             width: 100%;
             height: 100%;
@@ -424,6 +443,59 @@
             z-index: 20;
             display: flex;
             gap: 15px;
+        }
+        
+        .menu-screen {
+            position: absolute;
+            inset: 0;
+            background: #000;
+            z-index: 25;
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+        }
+        .menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .menu-title {
+            font-size: 2rem;
+            font-weight: 300;
+            color: var(--accent-color);
+            letter-spacing: 2px;
+        }
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+        .menu-tile {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 18px;
+            text-align: left;
+            color: #fff;
+            transition: 0.2s;
+        }
+        .menu-tile:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+        }
+        .menu-tile-title {
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 6px;
+        }
+        .menu-tile-sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
         .next-btn {
@@ -527,6 +599,14 @@
             </div>
 
             <div class="control-group">
+                <label class="control-label">Start Menu</label>
+                <label style="display:flex; align-items:center; gap:10px; color: var(--text-secondary); font-size: 0.9rem;">
+                    <input type="checkbox" id="inputStartMenu" onchange="updateShowSetting('startMenu', this.checked)">
+                    Show award menu before play
+                </label>
+            </div>
+
+            <div class="control-group">
                 <label class="control-label">Category Line (Top)</label>
                 <input type="text" id="inputCategoryLine" placeholder="e.g., And the award for" oninput="updateCurrentAward('categoryLine', this.value)">
             </div>
@@ -550,6 +630,11 @@
                 <label class="control-label">Reveal Button Text</label>
                 <input type="text" id="inputRevealText" placeholder="e.g., Reveal Winner" oninput="updateCurrentAward('revealText', this.value)">
             </div>
+            
+            <div class="control-group">
+                <label class="control-label">Next Slide Button Text</label>
+                <input type="text" id="inputNextText" placeholder="e.g., Next Slide" oninput="updateCurrentAward('nextText', this.value)">
+            </div>
 
             <div class="control-group">
                 <label class="control-label">Photo Overlay Text</label>
@@ -558,19 +643,25 @@
 
             <div class="control-group">
                 <label class="control-label">Overlay Delay (Seconds)</label>
-                <input type="range" id="inputOverlayDelay" min="0" max="6" step="0.5" value="0" oninput="updateCurrentAward('overlayDelay', parseFloat(this.value))">
+                <div class="range-row">
+                    <input type="range" id="inputOverlayDelay" min="0" max="6" step="0.5" value="0" oninput="setOverlayDelay(this.value)">
+                    <input type="number" id="inputOverlayDelayNum" min="0" max="6" step="0.1" value="0" oninput="setOverlayDelay(this.value)">
+                </div>
             </div>
 
             <div class="control-group">
                 <label class="control-label">Overlay Duration (Seconds)</label>
-                <input type="range" id="inputOverlayDuration" min="1" max="10" step="0.5" value="3" oninput="updateCurrentAward('overlayDuration', parseFloat(this.value))">
+                <div class="range-row">
+                    <input type="range" id="inputOverlayDuration" min="1" max="10" step="0.5" value="3" oninput="setOverlayDuration(this.value)">
+                    <input type="number" id="inputOverlayDurationNum" min="1" max="10" step="0.1" value="3" oninput="setOverlayDuration(this.value)">
+                </div>
             </div>
 
             <div class="control-group">
                 <label class="control-label">Photo</label>
                 <div class="file-upload-wrapper">
-                    <div class="btn-upload">Upload Photo</div>
-                    <input type="file" id="imageInput" accept="image/*" onchange="handleImageUpload(this)">
+                    <div class="btn-upload">Upload Photo / GIF</div>
+                    <input type="file" id="imageInput" accept="image/*,image/gif" onchange="handleImageUpload(this)">
                 </div>
             </div>
 
@@ -616,6 +707,13 @@
 
     <!-- PLAYER MODE -->
     <div id="player-app" class="hidden full-screen">
+        <div id="menuScreen" class="menu-screen hidden">
+            <div class="menu-header">
+                <div class="menu-title">Select an Award</div>
+                <button class="btn-secondary" onclick="startFromMenu(0)">Play From Start</button>
+            </div>
+            <div id="menuGrid" class="menu-grid"></div>
+        </div>
         <div id="playerBackground" class="photo-stage">
             <div id="playerImageWrap" class="player-image-wrap">
                 <img id="playerImageElement" class="player-image" src="">
@@ -641,6 +739,9 @@
          */
         let awards = [];
         let currentAwardId = null;
+        let showSettings = {
+            startMenu: false
+        };
         
         // Player State
         let playerState = {
@@ -674,6 +775,11 @@
 
             setupEditorInteractions();
 
+            if (window.EXPORTED_SETTINGS) {
+                showSettings = { ...showSettings, ...window.EXPORTED_SETTINGS };
+            }
+            syncShowSettingsUI();
+
             if (window.EXPORT_PLAY_ONLY) {
                 document.body.classList.add('export-play');
                 playShow();
@@ -700,6 +806,7 @@
                 winner: "Winner Name",
                 winnerColor: "#ff3b30",
                 revealText: "Reveal Winner",
+                nextText: "Next Slide",
                 overlayText: "",
                 overlayDelay: 0,
                 overlayDuration: 3,
@@ -730,9 +837,10 @@
             document.getElementById('inputWinner').value = award.winner;
             document.getElementById('inputWinnerColor').value = award.winnerColor || "#ff3b30";
             document.getElementById('inputRevealText').value = award.revealText || "Reveal Winner";
+            document.getElementById('inputNextText').value = award.nextText || "Next Slide";
             document.getElementById('inputOverlayText').value = award.overlayText || "";
-            document.getElementById('inputOverlayDelay').value = award.overlayDelay || 0;
-            document.getElementById('inputOverlayDuration').value = award.overlayDuration || 3;
+            setOverlayDelay(award.overlayDelay || 0);
+            setOverlayDuration(award.overlayDuration || 3);
             if (award.kenBurnsMode === undefined && award.kenBurns !== undefined) {
                 award.kenBurnsMode = award.kenBurns ? "zoom-in" : "off";
             }
@@ -792,6 +900,12 @@
                 const div = document.createElement('div');
                 div.className = `award-item ${award.id === currentAwardId ? 'active' : ''}`;
                 div.onclick = () => selectAward(award.id);
+                div.draggable = true;
+                div.addEventListener('dragstart', (e) => onDragStart(e, award.id));
+                div.addEventListener('dragover', (e) => onDragOver(e));
+                div.addEventListener('dragleave', (e) => onDragLeave(e));
+                div.addEventListener('drop', (e) => onDrop(e, award.id));
+                div.addEventListener('dragend', () => onDragEnd(div));
                 const typeLabel = award.slideType === 'photo' ? 'Photo Slide' : 'Award Slide';
                 div.innerHTML = `
                     <h4>${award.title || 'Untitled'}</h4>
@@ -800,6 +914,7 @@
                 `;
                 container.appendChild(div);
             });
+            renderMenu();
         }
 
         function handleImageUpload(input) {
@@ -886,6 +1001,24 @@
             saveTransform();
         }
 
+        function clampNumber(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        function setOverlayDelay(val) {
+            const v = clampNumber(parseFloat(val) || 0, 0, 6);
+            updateCurrentAward('overlayDelay', v);
+            document.getElementById('inputOverlayDelay').value = v;
+            document.getElementById('inputOverlayDelayNum').value = v;
+        }
+
+        function setOverlayDuration(val) {
+            const v = clampNumber(parseFloat(val) || 0, 1, 10);
+            updateCurrentAward('overlayDuration', v);
+            document.getElementById('inputOverlayDuration').value = v;
+            document.getElementById('inputOverlayDurationNum').value = v;
+        }
+
         function applyEditorTransform() {
             const img = document.getElementById('editorImage');
             img.style.transform = `translate(${editorTransform.x}px, ${editorTransform.y}px) scale(${editorTransform.scale})`;
@@ -914,16 +1047,19 @@
             // 2. Create a data string to inject
             // We need to serialize the 'awards' array into a window variable
             const dataString = JSON.stringify(awards);
+            const settingsString = JSON.stringify(showSettings);
             
             // 3. Inject script in <head> so it runs before the main script
             // We'll add a script block that sets EXPORTED_DATA before the app bootstraps
-            const injectScript = `<script id="exportedData">window.EXPORTED_DATA = ${dataString};window.EXPORT_PLAY_ONLY=true;<\/script>`;
+            const injectScript = `<script id="exportedData">window.EXPORTED_DATA = ${dataString};window.EXPORTED_SETTINGS = ${settingsString};window.EXPORT_PLAY_ONLY=true;<\/script>`;
 
             if (htmlContent.includes('window.EXPORTED_DATA')) {
                 const scriptRegex = /<script[^>]*>window\.EXPORTED_DATA[\s\S]*?<\/script>/g;
                 htmlContent = htmlContent.replace(scriptRegex, '');
                 const dataRegex = /window\.EXPORTED_DATA = .*?;/g;
                 htmlContent = htmlContent.replace(dataRegex, '');
+                const settingsRegex = /window\.EXPORTED_SETTINGS = .*?;/g;
+                htmlContent = htmlContent.replace(settingsRegex, '');
             }
             htmlContent = htmlContent.replace('</head>', injectScript + '</head>');
 
@@ -943,6 +1079,60 @@
 
         /* --- PLAYER LOGIC --- */
 
+        function updateShowSetting(key, value) {
+            showSettings[key] = value;
+        }
+
+        function syncShowSettingsUI() {
+            const startMenuEl = document.getElementById('inputStartMenu');
+            if (startMenuEl) startMenuEl.checked = !!showSettings.startMenu;
+        }
+
+        function renderMenu() {
+            const grid = document.getElementById('menuGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            awards.forEach((award, index) => {
+                if (award.slideType === 'photo') return;
+                const title = award.title || (award.slideType === 'photo' ? 'Photo Slide' : 'Untitled');
+                const typeLabel = award.slideType === 'photo' ? 'Photo Slide' : 'Award Slide';
+                const tile = document.createElement('button');
+                tile.className = 'menu-tile';
+                tile.onclick = () => startFromMenu(index);
+                tile.innerHTML = `
+                    <div class="menu-tile-title">${title}</div>
+                    <div class="menu-tile-sub">${typeLabel}</div>
+                `;
+                grid.appendChild(tile);
+            });
+        }
+
+        function showMenu() {
+            const menu = document.getElementById('menuScreen');
+            if (!menu) return;
+            menu.classList.remove('hidden');
+            renderMenu();
+            const bg = document.getElementById('playerBackground');
+            const textStage = document.getElementById('textStage');
+            const overlayEl = document.getElementById('playerOverlay');
+            bg.classList.remove('active');
+            textStage.classList.add('faded-out');
+            overlayEl.classList.remove('visible');
+            overlayEl.innerText = "";
+            overlayEl.classList.remove('has-text');
+        }
+
+        function hideMenu() {
+            const menu = document.getElementById('menuScreen');
+            if (!menu) return;
+            menu.classList.add('hidden');
+        }
+
+        function startFromMenu(index) {
+            hideMenu();
+            startSequence(index);
+        }
+
         function playShow() {
             if (awards.length === 0) {
                 showToast("No awards to play!");
@@ -958,7 +1148,11 @@
             else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
             else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
 
-            startSequence(0);
+            if (showSettings.startMenu) {
+                showMenu();
+            } else {
+                startSequence(0);
+            }
         }
 
         function startSequence(index) {
@@ -998,6 +1192,8 @@
                 winnerEl.style.visibility = 'hidden';
                 winnerEl.style.color = award.winnerColor || "#ff3b30";
                 overlayEl.innerText = award.overlayText || "";
+                overlayEl.classList.toggle('has-text', !!award.overlayText);
+                overlayEl.classList.toggle('has-text', !!award.overlayText);
 
                 const isPhotoOnly = award.slideType === 'photo';
                 if (!isPhotoOnly) {
@@ -1017,7 +1213,8 @@
                 }
 
                 // Button State
-                btn.innerText = isPhotoOnly ? "Next Slide" : (award.revealText || "Reveal Winner");
+                const nextLabel = award.nextText || "Next Slide";
+                btn.innerText = isPhotoOnly ? nextLabel : (award.revealText || "Reveal Winner");
                 btn.classList.add('visible');
                 btn.disabled = false;
 
@@ -1110,7 +1307,7 @@
                     const btn = document.getElementById('nextBtn');
                     
                     if (playerState.currentIndex < awards.length - 1) {
-                        btn.innerText = "Next Award";
+                        btn.innerText = award.nextText || "Next Slide";
                     } else {
                         btn.innerText = "End Show";
                     }
@@ -1246,6 +1443,46 @@
             setTimeout(() => {
                 wrap.classList.remove('ken-burns-preview');
             }, duration);
+        }
+
+        let draggedAwardId = null;
+
+        function onDragStart(e, id) {
+            draggedAwardId = id;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', id);
+            e.currentTarget.classList.add('dragging');
+        }
+
+        function onDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function onDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function onDrop(e, targetId) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const fromId = draggedAwardId || e.dataTransfer.getData('text/plain');
+            if (!fromId || fromId === targetId) return;
+            const fromIndex = awards.findIndex(a => a.id === fromId);
+            const toIndex = awards.findIndex(a => a.id === targetId);
+            if (fromIndex === -1 || toIndex === -1) return;
+            const [moved] = awards.splice(fromIndex, 1);
+            awards.splice(toIndex, 0, moved);
+            renderList();
+            currentAwardId = moved.id;
+            selectAward(currentAwardId);
+        }
+
+        function onDragEnd(el) {
+            el.classList.remove('dragging');
+            document.querySelectorAll('.award-item.drag-over').forEach(item => item.classList.remove('drag-over'));
+            draggedAwardId = null;
         }
 
         function endShow() {

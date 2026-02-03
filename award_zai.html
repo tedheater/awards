@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premier Award Creator</title>
+    <!-- Importing a sleek, lightweight font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #050505;
+            --surface-color: #121212;
+            --surface-hover: #1e1e1e;
+            --accent-color: #d4af37; /* Gold */
+            --accent-dim: #8a7122;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --border-color: #333333;
+            --font-main: 'Montserrat', sans-serif;
+            --transition-speed: 0.4s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            font-weight: 300;
+        }
+        body.export-play #editor-app { display: none !important; }
+        body.export-play .player-controls { display: none !important; }
+        body.export-play .toast { display: none !important; }
+
+        /* --- Utility & Layout --- */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .center { align-items: center; justify-content: center; }
+        .full-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+        }
+
+        /* --- UI Components --- */
+        button {
+            cursor: pointer;
+            border: none;
+            outline: none;
+            font-family: var(--font-main);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: #000;
+            padding: 12px 24px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 2px;
+        }
+        .btn-primary:hover {
+            background-color: #fff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+        .btn-secondary:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .btn-icon {
+            background: none;
+            color: var(--text-secondary);
+            padding: 8px;
+            font-size: 1.2rem;
+        }
+        .btn-icon:hover { color: #fff; }
+
+        input[type="text"] {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 14px;
+            font-family: var(--font-main);
+            font-weight: 300;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+            outline: none;
+        }
+
+        /* --- Editor Layout --- */
+        #editor-app {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            height: 100vh;
+        }
+
+        /* Left Sidebar: List */
+        .sidebar {
+            background-color: var(--surface-color);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .app-title {
+            font-weight: 300;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--accent-color);
+            letter-spacing: 2px;
+        }
+        .award-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        .award-item {
+            background-color: var(--bg-color);
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+        }
+        .award-item:hover { border-color: var(--border-color); }
+        .award-item.active { border-color: var(--accent-color); }
+        .award-item h4 { font-weight: 400; margin-bottom: 5px; font-size: 0.95rem; }
+        .award-item p { font-size: 0.75rem; color: var(--text-secondary); }
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #ff4444;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .award-item:hover .delete-btn { opacity: 1; }
+
+        /* Center: Preview & Animation */
+        .preview-area {
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .image-container {
+            overflow: hidden;
+            width: 80%;
+            height: 80%;
+            border: 1px dashed var(--border-color);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .editor-image-wrap {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-origin: center center;
+        }
+        .editor-image-wrap.ken-burns-preview {
+            animation: kenBurnsCustom var(--kb-duration, 12s) ease-in-out infinite alternate;
+        }
+        .image-container.drag-over {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+        }
+        .preview-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.1s linear; /* Smooth drag */
+            transform-origin: center center;
+            cursor: grab;
+        }
+        .preview-image:active { cursor: grabbing; }
+        
+        .overlay-controls-hint {
+            position: absolute;
+            bottom: 20px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 20px;
+            pointer-events: none;
+        }
+
+        /* Right Sidebar: Controls */
+        .controls-panel {
+            background-color: var(--surface-color);
+            border-left: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .control-group { margin-bottom: 25px; }
+        .control-label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .file-upload-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-upload-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .btn-upload {
+            background-color: var(--surface-hover);
+            border: 1px dashed var(--text-secondary);
+            color: var(--text-primary);
+            width: 100%;
+            padding: 20px;
+            text-align: center;
+            transition: 0.2s;
+        }
+        .btn-upload:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        input[type=range] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: var(--border-color);
+        }
+
+        /* --- Player / Presentation Mode --- */
+        #player-app {
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            perspective: 1000px;
+        }
+
+        .text-stage {
+            text-align: center;
+            z-index: 10;
+            padding: 20px;
+            max-width: 80%;
+            min-height: 16rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Added fade transition */
+            transition: opacity 0.8s ease-out;
+        }
+        
+        /* Class to hide text completely */
+        .text-stage.faded-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .category-label {
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .category-label.secondary {
+            margin-top: 20px;
+            margin-bottom: 0;
+        }
+        .award-title {
+            font-size: 3.5rem;
+            font-weight: 200;
+            line-height: 1.2;
+            margin-bottom: 40px;
+            opacity: 0;
+            transform: translateY(20px);
+            text-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        .winner-reveal {
+            font-size: 3.5rem;
+            color: #ff3b30;
+            margin-top: 20px;
+            opacity: 0;
+            font-weight: 400;
+            min-height: 3.8rem;
+            line-height: 1.05;
+        }
+
+        /* Animation Classes */
+        .animate-in {
+            animation: fadeInUp 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+        .animate-delay-1 { animation-delay: 0.3s; }
+        .animate-delay-2 { animation-delay: 0.6s; }
+
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .photo-stage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+            pointer-events: none;
+        }
+        .photo-stage.active { opacity: 1; }
+        .photo-overlay {
+            position: absolute;
+            left: 50%;
+            bottom: 12%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 2.2rem;
+            font-weight: 300;
+            color: #ffffff;
+            letter-spacing: 1px;
+            text-shadow:
+                0 2px 6px rgba(0,0,0,0.85),
+                0 0 18px rgba(255,255,255,0.55),
+                0 0 36px rgba(255,255,255,0.35);
+            background: rgba(0,0,0,0.45);
+            padding: 10px 18px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            transition: opacity 0.8s ease-out;
+            max-width: 90%;
+            pointer-events: none;
+        }
+        .photo-overlay.visible { opacity: 1; }
+        .player-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            /* Will be set via inline JS for transforms */
+        }
+        .player-image-wrap {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-origin: center center;
+        }
+        .player-image-wrap.ken-burns {
+            animation: kenBurnsCustom var(--kb-duration, 12s) ease-in-out infinite alternate;
+        }
+
+        @keyframes kenBurnsCustom {
+            from { transform: scale(var(--kb-scale-from, 1)) translate(var(--kb-x-from, 0px), var(--kb-y-from, 0px)); }
+            to { transform: scale(var(--kb-scale-to, 1.08)) translate(var(--kb-x-to, 20px), var(--kb-y-to, -10px)); }
+        }
+
+        .player-controls {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            z-index: 20;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .next-btn {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(5px);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.3s;
+        }
+        .next-btn.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .next-btn:hover {
+            background: white;
+            color: black;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: var(--surface-color);
+            border: 1px solid var(--accent-color);
+            padding: 12px 24px;
+            border-radius: 4px;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 200;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            #editor-app { grid-template-columns: 1fr; overflow-y: auto; height: auto;}
+            .sidebar, .controls-panel { height: auto; border: none; }
+            .image-container { height: 300px; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">Action Successful</div>
+
+    <!-- EDITOR MODE -->
+    <div id="editor-app">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <h1 class="app-title">AWARDS CREATOR</h1>
+            <button class="btn-primary" style="width:100%; margin-bottom:20px;" onclick="createNewAward()">+ New Award</button>
+            
+            <div class="award-list" id="awardList">
+                <!-- List items injected here -->
+            </div>
+
+            <div style="margin-top: auto; padding-top:20px; border-top: 1px solid var(--border-color);">
+                <button class="btn-primary" style="width:100%; margin-bottom:10px; background: #fff;" onclick="playShow()">
+                    ▶ Play Show
+                </button>
+                <button class="btn-secondary" style="width:100%;" onclick="exportShow()">
+                    Export HTML
+                </button>
+            </div>
+        </aside>
+
+        <!-- Center Preview -->
+        <main class="preview-area">
+            <div class="image-container" id="editorImageContainer">
+                <div id="editorImageWrap" class="editor-image-wrap">
+                    <img id="editorImage" class="preview-image" src="" alt="Preview" style="display: none;">
+                </div>
+                <div id="placeholderText" class="center flex-col" style="color: var(--text-secondary);">
+                    <span style="font-size: 3rem; opacity: 0.2;">+</span>
+                    <span>Select or Create Award</span>
+                </div>
+            </div>
+            <div class="overlay-controls-hint">Click & Drag to Pan • Scroll to Zoom</div>
+        </main>
+
+        <!-- Right Controls -->
+        <aside class="controls-panel">
+            <div class="control-group">
+                <label class="control-label">Category / Title</label>
+                <input type="text" id="inputTitle" placeholder="e.g., Best Beard" oninput="updateCurrentAward('title', this.value)">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Slide Type</label>
+                <select id="inputSlideType" onchange="updateCurrentAward('slideType', this.value)" style="width:100%; padding:10px 14px; background: var(--surface-color); color: var(--text-primary); border: 1px solid var(--border-color); font-family: var(--font-main);">
+                    <option value="award">Award (Title Card)</option>
+                    <option value="photo">Photo Only</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Category Line (Top)</label>
+                <input type="text" id="inputCategoryLine" placeholder="e.g., And the award for" oninput="updateCurrentAward('categoryLine', this.value)">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Category Line (Below Title)</label>
+                <input type="text" id="inputSubLine" placeholder="e.g., Goes to..." oninput="updateCurrentAward('subLine', this.value)">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Winner Name (Optional)</label>
+                <input type="text" id="inputWinner" placeholder="e.g., John Doe" oninput="updateCurrentAward('winner', this.value)">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Winner Color</label>
+                <input type="color" id="inputWinnerColor" value="#ff3b30" oninput="updateCurrentAward('winnerColor', this.value)" style="width: 100%; height: 40px; padding: 0; border: 1px solid var(--border-color); background: var(--surface-color);">
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">Reveal Button Text</label>
+                <input type="text" id="inputRevealText" placeholder="e.g., Reveal Winner" oninput="updateCurrentAward('revealText', this.value)">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Photo Overlay Text</label>
+                <input type="text" id="inputOverlayText" placeholder="e.g., Presented by..." oninput="updateCurrentAward('overlayText', this.value)">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Overlay Delay (Seconds)</label>
+                <input type="range" id="inputOverlayDelay" min="0" max="6" step="0.5" value="0" oninput="updateCurrentAward('overlayDelay', parseFloat(this.value))">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Overlay Duration (Seconds)</label>
+                <input type="range" id="inputOverlayDuration" min="1" max="10" step="0.5" value="3" oninput="updateCurrentAward('overlayDuration', parseFloat(this.value))">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Photo</label>
+                <div class="file-upload-wrapper">
+                    <div class="btn-upload">Upload Photo</div>
+                    <input type="file" id="imageInput" accept="image/*" onchange="handleImageUpload(this)">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Framing Zoom</label>
+                <input type="range" id="zoomInput" min="0.5" max="3" step="0.05" value="1" oninput="handleZoomChange(this.value)">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Ken Burns Mode</label>
+                <select id="inputKenBurnsMode" onchange="updateCurrentAward('kenBurnsMode', this.value)" style="width:100%; padding:10px 14px; background: var(--surface-color); color: var(--text-primary); border: 1px solid var(--border-color); font-family: var(--font-main);">
+                    <option value="off">Off</option>
+                    <option value="zoom-in">Zoom In</option>
+                    <option value="zoom-out">Zoom Out</option>
+                    <option value="pan-left-right">Pan Left → Right</option>
+                    <option value="pan-right-left">Pan Right → Left</option>
+                    <option value="pan-up-down">Pan Up → Down</option>
+                    <option value="pan-down-up">Pan Down → Up</option>
+                    <option value="diagonal-up-right">Diagonal Up → Right</option>
+                    <option value="diagonal-down-left">Diagonal Down → Left</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Ken Burns Duration (Seconds)</label>
+                <input type="range" id="inputKenBurnsDuration" min="6" max="24" step="1" value="12" oninput="updateCurrentAward('kenBurnsDuration', parseInt(this.value, 10))">
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Ken Burns Intensity</label>
+                <input type="range" id="inputKenBurnsIntensity" min="0" max="60" step="2" value="20" oninput="updateCurrentAward('kenBurnsIntensity', parseInt(this.value, 10))">
+            </div>
+
+            <div class="control-group">
+                <button class="btn-secondary" style="width:100%;" onclick="previewKenBurns()">Preview Ken Burns</button>
+            </div>
+
+            <div class="control-group" style="margin-top: auto;">
+                <button class="btn-secondary" style="width:100%;" onclick="resetFraming()">Reset Framing</button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- PLAYER MODE -->
+    <div id="player-app" class="hidden full-screen">
+        <div id="playerBackground" class="photo-stage">
+            <div id="playerImageWrap" class="player-image-wrap">
+                <img id="playerImageElement" class="player-image" src="">
+            </div>
+            <div id="playerOverlay" class="photo-overlay"></div>
+        </div>
+
+        <div id="textStage" class="text-stage">
+            <div id="playerCategory" class="category-label">The Award Goes To</div>
+            <div id="playerTitle" class="award-title">...</div>
+            <div id="playerSubLine" class="category-label secondary">...</div>
+            <div id="playerWinner" class="winner-reveal">...</div>
+        </div>
+
+        <div class="player-controls">
+            <button id="nextBtn" class="next-btn" onclick="nextStep()">Reveal Winner</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * APPLICATION STATE
+         */
+        let awards = [];
+        let currentAwardId = null;
+        
+        // Player State
+        let playerState = {
+            currentIndex: 0,
+            phase: 'intro' // 'intro', 'revealing', 'revealed'
+        };
+        const REVEAL_DELAY_MS = 900;
+        const BG_FADE_MS = 1200;
+        const TEXT_FADE_DELAY_MS = 800;
+
+        // Editor Viewport State (Panning/Zooming)
+        let editorTransform = { x: 0, y: 0, scale: 1 };
+        let isDragging = false;
+        let startX, startY;
+
+        /**
+         * INITIALIZATION
+         */
+        window.addEventListener('DOMContentLoaded', () => {
+            // Check if we loaded exported data
+            if (window.EXPORTED_DATA) {
+                awards = window.EXPORTED_DATA;
+                renderList();
+                // If exported, maybe we just want to play immediately?
+                // But keeping editor accessible allows re-editing.
+                showToast("Loaded " + awards.length + " awards from file.");
+            } else {
+                // Create a default award for demo
+                createNewAward();
+            }
+
+            setupEditorInteractions();
+
+            if (window.EXPORT_PLAY_ONLY) {
+                document.body.classList.add('export-play');
+                playShow();
+                window.addEventListener('click', () => nextStep());
+                window.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'Enter') {
+                        e.preventDefault();
+                        nextStep();
+                    }
+                });
+            }
+        });
+
+        /* --- EDITOR LOGIC --- */
+
+        function createNewAward() {
+            const newId = Date.now().toString();
+            const newAward = {
+                id: newId,
+                title: "New Category",
+                slideType: "award",
+                categoryLine: "And the award for",
+                subLine: "",
+                winner: "Winner Name",
+                winnerColor: "#ff3b30",
+                revealText: "Reveal Winner",
+                overlayText: "",
+                overlayDelay: 0,
+                overlayDuration: 3,
+                image: "", // Base64
+                transform: { x: 0, y: 0, scale: 1 },
+                kenBurnsMode: "off",
+                kenBurnsDuration: 12,
+                kenBurnsIntensity: 20
+            };
+            awards.push(newAward);
+            renderList();
+            selectAward(newId);
+        }
+
+        function selectAward(id) {
+            currentAwardId = id;
+            renderList();
+            
+            const award = awards.find(a => a.id === id);
+            if (!award) return;
+
+            // Populate inputs
+            document.getElementById('inputTitle').value = award.title;
+            if (!award.slideType) award.slideType = "award";
+            document.getElementById('inputSlideType').value = award.slideType;
+            document.getElementById('inputCategoryLine').value = award.categoryLine || "";
+            document.getElementById('inputSubLine').value = award.subLine || "";
+            document.getElementById('inputWinner').value = award.winner;
+            document.getElementById('inputWinnerColor').value = award.winnerColor || "#ff3b30";
+            document.getElementById('inputRevealText').value = award.revealText || "Reveal Winner";
+            document.getElementById('inputOverlayText').value = award.overlayText || "";
+            document.getElementById('inputOverlayDelay').value = award.overlayDelay || 0;
+            document.getElementById('inputOverlayDuration').value = award.overlayDuration || 3;
+            if (award.kenBurnsMode === undefined && award.kenBurns !== undefined) {
+                award.kenBurnsMode = award.kenBurns ? "zoom-in" : "off";
+            }
+            document.getElementById('inputKenBurnsMode').value = award.kenBurnsMode || "off";
+            document.getElementById('inputKenBurnsDuration').value = award.kenBurnsDuration || 12;
+            document.getElementById('inputKenBurnsIntensity').value = award.kenBurnsIntensity || 20;
+            
+            // Load Image
+            const imgEl = document.getElementById('editorImage');
+            const phEl = document.getElementById('placeholderText');
+            
+            if (award.image) {
+                imgEl.src = award.image;
+                imgEl.style.display = 'block';
+                phEl.style.display = 'none';
+            } else {
+                imgEl.src = "";
+                imgEl.style.display = 'none';
+                phEl.style.display = 'flex';
+            }
+
+            // Load Transforms
+            editorTransform = { ...award.transform };
+            applyEditorTransform();
+            document.getElementById('zoomInput').value = editorTransform.scale;
+        }
+
+        function updateCurrentAward(key, value) {
+            const award = awards.find(a => a.id === currentAwardId);
+            if (award) {
+                award[key] = value;
+                if (key === 'title') renderList(); // Update list text
+            }
+        }
+
+        function deleteAward(e, id) {
+            e.stopPropagation();
+            if (!confirm("Delete this award?")) return;
+            awards = awards.filter(a => a.id !== id);
+            if (currentAwardId === id) {
+                currentAwardId = awards.length > 0 ? awards[0].id : null;
+                if (currentAwardId) selectAward(currentAwardId);
+                else {
+                    document.getElementById('editorImage').style.display = 'none';
+                    document.getElementById('placeholderText').style.display = 'flex';
+                    document.getElementById('inputTitle').value = "";
+                }
+            }
+            renderList();
+        }
+
+        function renderList() {
+            const container = document.getElementById('awardList');
+            container.innerHTML = '';
+            
+            awards.forEach(award => {
+                const div = document.createElement('div');
+                div.className = `award-item ${award.id === currentAwardId ? 'active' : ''}`;
+                div.onclick = () => selectAward(award.id);
+                const typeLabel = award.slideType === 'photo' ? 'Photo Slide' : 'Award Slide';
+                div.innerHTML = `
+                    <h4>${award.title || 'Untitled'}</h4>
+                    <p>${award.winner || 'No winner set'} • ${typeLabel}</p>
+                    <button class="btn-icon delete-btn" onclick="deleteAward(event, '${award.id}')">×</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function handleImageUpload(input) {
+            if (input.files && input.files[0]) handleImageFile(input.files[0]);
+        }
+
+        function handleImageFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                updateCurrentAward('image', e.target.result);
+                selectAward(currentAwardId); // Refresh preview
+            }
+            reader.readAsDataURL(file);
+        }
+
+        /* --- FRAMING CONTROLS --- */
+
+        function setupEditorInteractions() {
+            const container = document.getElementById('editorImageContainer');
+            const img = document.getElementById('editorImage');
+
+            // Drag & Drop Upload
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                container.classList.add('drag-over');
+            });
+            container.addEventListener('dragleave', () => {
+                container.classList.remove('drag-over');
+            });
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                container.classList.remove('drag-over');
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleImageFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            // Mouse Down
+            container.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX - editorTransform.x;
+                startY = e.clientY - editorTransform.y;
+                container.style.cursor = 'grabbing';
+            });
+
+            // Mouse Up
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    container.style.cursor = 'default';
+                    saveTransform();
+                }
+            });
+
+            // Mouse Move
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                const x = e.clientX - startX;
+                const y = e.clientY - startY;
+                editorTransform.x = x;
+                editorTransform.y = y;
+                applyEditorTransform();
+            });
+
+            // Wheel Zoom
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY * -0.001;
+                const newScale = Math.min(Math.max(0.5, editorTransform.scale + delta), 3);
+                
+                editorTransform.scale = newScale;
+                document.getElementById('zoomInput').value = newScale;
+                applyEditorTransform();
+                // Debounce save slightly or save on mouseup? Let's save immediately for zoom
+                saveTransform();
+            });
+        }
+
+        function handleZoomChange(val) {
+            editorTransform.scale = parseFloat(val);
+            applyEditorTransform();
+            saveTransform();
+        }
+
+        function applyEditorTransform() {
+            const img = document.getElementById('editorImage');
+            img.style.transform = `translate(${editorTransform.x}px, ${editorTransform.y}px) scale(${editorTransform.scale})`;
+        }
+
+        function resetFraming() {
+            editorTransform = { x: 0, y: 0, scale: 1 };
+            applyEditorTransform();
+            document.getElementById('zoomInput').value = 1;
+            saveTransform();
+        }
+
+        function saveTransform() {
+            const award = awards.find(a => a.id === currentAwardId);
+            if (award) {
+                award.transform = { ...editorTransform };
+            }
+        }
+
+        /* --- SHOW EXPORT LOGIC --- */
+
+        function exportShow() {
+            // 1. Get current HTML content
+            let htmlContent = document.documentElement.outerHTML;
+
+            // 2. Create a data string to inject
+            // We need to serialize the 'awards' array into a window variable
+            const dataString = JSON.stringify(awards);
+            
+            // 3. Inject script in <head> so it runs before the main script
+            // We'll add a script block that sets EXPORTED_DATA before the app bootstraps
+            const injectScript = `<script id="exportedData">window.EXPORTED_DATA = ${dataString};window.EXPORT_PLAY_ONLY=true;<\/script>`;
+
+            if (htmlContent.includes('window.EXPORTED_DATA')) {
+                const scriptRegex = /<script[^>]*>window\.EXPORTED_DATA[\s\S]*?<\/script>/g;
+                htmlContent = htmlContent.replace(scriptRegex, '');
+                const dataRegex = /window\.EXPORTED_DATA = .*?;/g;
+                htmlContent = htmlContent.replace(dataRegex, '');
+            }
+            htmlContent = htmlContent.replace('</head>', injectScript + '</head>');
+
+            // 4. Trigger Download
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'award_show.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast("Exported successfully!");
+        }
+
+        /* --- PLAYER LOGIC --- */
+
+        function playShow() {
+            if (awards.length === 0) {
+                showToast("No awards to play!");
+                return;
+            }
+
+            document.getElementById('editor-app').classList.add('hidden');
+            document.getElementById('player-app').classList.remove('hidden');
+            
+            // Request Fullscreen
+            const elem = document.getElementById('player-app');
+            if (elem.requestFullscreen) elem.requestFullscreen();
+            else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+            else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+
+            startSequence(0);
+        }
+
+        function startSequence(index) {
+            playerState.currentIndex = index;
+            playerState.phase = 'intro';
+
+            const bg = document.getElementById('playerBackground');
+            const btn = document.getElementById('nextBtn');
+            const textStage = document.getElementById('textStage');
+            
+            const award = awards[index];
+            
+            const needsFade = bg.classList.contains('active');
+            const delay = needsFade ? BG_FADE_MS : 0;
+
+            bg.classList.remove('active'); // Fade to black
+            textStage.classList.add('faded-out'); // Hide text during transition
+            const overlayEl = document.getElementById('playerOverlay');
+            overlayEl.classList.remove('visible');
+            overlayEl.innerText = "";
+
+            setTimeout(() => {
+                // Reset Text animations
+                resetAnimation('playerCategory');
+                resetAnimation('playerTitle');
+                resetAnimation('playerSubLine');
+                resetAnimation('playerWinner');
+
+                // Populate Text
+                document.getElementById('playerCategory').innerText = award.categoryLine || "And the award for";
+                document.getElementById('playerTitle').innerText = award.title;
+                const subLineEl = document.getElementById('playerSubLine');
+                subLineEl.innerText = award.subLine || "";
+                subLineEl.style.display = award.subLine ? 'block' : 'none';
+                const winnerEl = document.getElementById('playerWinner');
+                winnerEl.innerText = ""; // Hide winner initially
+                winnerEl.style.visibility = 'hidden';
+                winnerEl.style.color = award.winnerColor || "#ff3b30";
+                overlayEl.innerText = award.overlayText || "";
+
+                const isPhotoOnly = award.slideType === 'photo';
+                if (!isPhotoOnly) {
+                    // Reveal text stage
+                    textStage.classList.remove('faded-out');
+                }
+
+                // Trigger Text Animations
+                if (!isPhotoOnly) {
+                    setTimeout(() => {
+                        document.getElementById('playerCategory').classList.add('animate-in');
+                        document.getElementById('playerTitle').classList.add('animate-in', 'animate-delay-1');
+                        if (award.subLine) {
+                            document.getElementById('playerSubLine').classList.add('animate-in', 'animate-delay-2');
+                        }
+                    }, 100);
+                }
+
+                // Button State
+                btn.innerText = isPhotoOnly ? "Next Slide" : (award.revealText || "Reveal Winner");
+                btn.classList.add('visible');
+                btn.disabled = false;
+
+                document.getElementById('playerImageWrap').classList.remove('ken-burns');
+
+                if (isPhotoOnly) {
+                    const img = document.getElementById('playerImageElement');
+                    const imgWrap = document.getElementById('playerImageWrap');
+                    img.src = award.image;
+                    img.style.transform = `translate(${award.transform.x}px, ${award.transform.y}px) scale(${award.transform.scale})`;
+                    applyKenBurns(imgWrap, award);
+                    bg.classList.add('active');
+
+                    if (award.overlayText) {
+                        const overlayDelayMs = Math.max(0, (award.overlayDelay || 0) * 1000);
+                        const overlayDurationMs = Math.max(0, (award.overlayDuration || 3) * 1000);
+                        setTimeout(() => {
+                            overlayEl.classList.add('visible');
+                            if (overlayDurationMs > 0) {
+                                setTimeout(() => {
+                                    overlayEl.classList.remove('visible');
+                                }, overlayDurationMs);
+                            }
+                        }, overlayDelayMs);
+                    }
+
+                    playerState.phase = 'revealed';
+                }
+            }, delay);
+        }
+
+        function nextStep() {
+            const award = awards[playerState.currentIndex];
+            const textStage = document.getElementById('textStage');
+
+            if (playerState.phase === 'revealing') return;
+
+            if (award.slideType === 'photo') {
+                if (playerState.currentIndex < awards.length - 1) {
+                    startSequence(playerState.currentIndex + 1);
+                } else {
+                    endShow();
+                }
+                return;
+            }
+
+            if (playerState.phase === 'intro') {
+                // Reveal the Winner Name first (on black), then photo
+                playerState.phase = 'revealing';
+                document.getElementById('nextBtn').disabled = true;
+                
+                const bg = document.getElementById('playerBackground');
+                const img = document.getElementById('playerImageElement');
+                const imgWrap = document.getElementById('playerImageWrap');
+                
+                // Show Winner Text if exists
+                const winnerEl = document.getElementById('playerWinner');
+                if (award.winner) {
+                    winnerEl.innerText = award.winner;
+                    winnerEl.style.color = award.winnerColor || "#ff3b30";
+                    winnerEl.style.visibility = 'visible';
+                    winnerEl.classList.add('animate-in');
+                }
+
+                setTimeout(() => {
+                    // Set Image
+                    img.src = award.image;
+                    // Apply Saved Transforms
+                    img.style.transform = `translate(${award.transform.x}px, ${award.transform.y}px) scale(${award.transform.scale})`;
+
+                    applyKenBurns(imgWrap, award);
+
+                    bg.classList.add('active');
+
+                    const overlayEl = document.getElementById('playerOverlay');
+                    if (award.overlayText) {
+                        const overlayDelayMs = Math.max(0, (award.overlayDelay || 0) * 1000);
+                        const overlayDurationMs = Math.max(0, (award.overlayDuration || 3) * 1000);
+                        setTimeout(() => {
+                            overlayEl.classList.add('visible');
+                            if (overlayDurationMs > 0) {
+                                setTimeout(() => {
+                                    overlayEl.classList.remove('visible');
+                                }, overlayDurationMs);
+                            }
+                        }, overlayDelayMs);
+                    }
+
+                    // Update Button
+                    const btn = document.getElementById('nextBtn');
+                    
+                    if (playerState.currentIndex < awards.length - 1) {
+                        btn.innerText = "Next Award";
+                    } else {
+                        btn.innerText = "End Show";
+                    }
+
+                    playerState.phase = 'revealed';
+                    btn.disabled = false;
+
+                    // Fade out text a bit sooner after reveal
+                    setTimeout(() => {
+                        textStage.classList.add('faded-out');
+                    }, TEXT_FADE_DELAY_MS);
+                }, REVEAL_DELAY_MS);
+
+            } else {
+                // Move to next
+                if (playerState.currentIndex < awards.length - 1) {
+                    startSequence(playerState.currentIndex + 1);
+                } else {
+                    endShow();
+                }
+            }
+        }
+
+        function resetAnimation(id) {
+            const el = document.getElementById(id);
+            el.classList.remove('animate-in', 'animate-delay-1', 'animate-delay-2');
+            void el.offsetWidth; // Trigger reflow
+        }
+
+        function applyKenBurns(imgWrap, award, className = 'ken-burns') {
+            let mode = award.kenBurnsMode;
+            if (mode === undefined && award.kenBurns !== undefined) {
+                mode = award.kenBurns ? "zoom-in" : "off";
+            }
+            mode = mode || "off";
+            const duration = award.kenBurnsDuration || 12;
+            const intensity = award.kenBurnsIntensity || 20;
+            const scaleDelta = Math.max(0, (intensity / 60) * 0.2);
+
+            imgWrap.classList.remove('ken-burns', 'ken-burns-preview');
+            imgWrap.style.removeProperty('--kb-scale-from');
+            imgWrap.style.removeProperty('--kb-scale-to');
+            imgWrap.style.removeProperty('--kb-x-from');
+            imgWrap.style.removeProperty('--kb-x-to');
+            imgWrap.style.removeProperty('--kb-y-from');
+            imgWrap.style.removeProperty('--kb-y-to');
+            imgWrap.style.removeProperty('--kb-duration');
+
+            if (mode === "off") return;
+
+            let scaleFrom = 1;
+            let scaleTo = 1 + scaleDelta;
+            let xFrom = 0;
+            let xTo = 0;
+            let yFrom = 0;
+            let yTo = 0;
+
+            switch (mode) {
+                case "zoom-in":
+                    scaleFrom = 1;
+                    scaleTo = 1 + scaleDelta;
+                    break;
+                case "zoom-out":
+                    scaleFrom = 1 + scaleDelta;
+                    scaleTo = 1;
+                    break;
+                case "pan-left-right":
+                    xFrom = -intensity;
+                    xTo = intensity;
+                    scaleTo = 1 + scaleDelta * 0.5;
+                    break;
+                case "pan-right-left":
+                    xFrom = intensity;
+                    xTo = -intensity;
+                    scaleTo = 1 + scaleDelta * 0.5;
+                    break;
+                case "pan-up-down":
+                    yFrom = -intensity;
+                    yTo = intensity;
+                    scaleTo = 1 + scaleDelta * 0.5;
+                    break;
+                case "pan-down-up":
+                    yFrom = intensity;
+                    yTo = -intensity;
+                    scaleTo = 1 + scaleDelta * 0.5;
+                    break;
+                case "diagonal-up-right":
+                    xFrom = -intensity;
+                    xTo = intensity;
+                    yFrom = intensity;
+                    yTo = -intensity;
+                    scaleTo = 1 + scaleDelta * 0.5;
+                    break;
+                case "diagonal-down-left":
+                    xFrom = intensity;
+                    xTo = -intensity;
+                    yFrom = -intensity;
+                    yTo = intensity;
+                    scaleTo = 1 + scaleDelta * 0.5;
+                    break;
+                default:
+                    break;
+            }
+
+            imgWrap.style.setProperty('--kb-scale-from', `${scaleFrom}`);
+            imgWrap.style.setProperty('--kb-scale-to', `${scaleTo}`);
+            imgWrap.style.setProperty('--kb-x-from', `${xFrom}px`);
+            imgWrap.style.setProperty('--kb-x-to', `${xTo}px`);
+            imgWrap.style.setProperty('--kb-y-from', `${yFrom}px`);
+            imgWrap.style.setProperty('--kb-y-to', `${yTo}px`);
+            imgWrap.style.setProperty('--kb-duration', `${duration}s`);
+            imgWrap.classList.add(className);
+        }
+
+        function previewKenBurns() {
+            const award = awards.find(a => a.id === currentAwardId);
+            if (!award) return;
+            if (!award.image) {
+                showToast("Upload a photo to preview.");
+                return;
+            }
+            if ((award.kenBurnsMode || "off") === "off" && award.kenBurns !== true) {
+                showToast("Ken Burns is off.");
+                return;
+            }
+
+            const wrap = document.getElementById('editorImageWrap');
+            wrap.classList.remove('ken-burns-preview');
+            void wrap.offsetWidth;
+            applyKenBurns(wrap, award, 'ken-burns-preview');
+
+            const duration = (award.kenBurnsDuration || 12) * 1000;
+            setTimeout(() => {
+                wrap.classList.remove('ken-burns-preview');
+            }, duration);
+        }
+
+        function endShow() {
+            if (window.EXPORT_PLAY_ONLY) {
+                const bg = document.getElementById('playerBackground');
+                const textStage = document.getElementById('textStage');
+                bg.classList.remove('active');
+                textStage.classList.add('faded-out');
+                return;
+            }
+            document.exitFullscreen().catch(err => console.log(err));
+            document.getElementById('player-app').classList.add('hidden');
+            document.getElementById('editor-app').classList.remove('hidden');
+            showToast("Show Finished");
+        }
+
+        /* --- UTILS --- */
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>

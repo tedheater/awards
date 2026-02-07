@@ -1519,6 +1519,27 @@
                             <label class="control-label" id="inputNextTextLabel">Next Slide Button Text</label>
                             <input type="text" id="inputNextText" placeholder="e.g., Next Slide" oninput="updateCurrentAward('nextText', this.value)">
                         </div>
+                        <div class="control-group" id="awardLinkedStartGroup">
+                            <label class="control-label">Show More Slideshow (Start)</label>
+                            <select id="inputAwardLinkedStart" onchange="updateAwardLinkedStart(this.value)" style="width:100%; padding:10px 14px; background: var(--surface-color); color: var(--text-primary); border: 1px solid var(--border-color); font-family: var(--font-main);">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                        <div class="control-group" id="awardLinkedEndGroup">
+                            <label class="control-label">Show More Slideshow (End)</label>
+                            <select id="inputAwardLinkedEnd" onchange="updateAwardLinkedEnd(this.value)" style="width:100%; padding:10px 14px; background: var(--surface-color); color: var(--text-primary); border: 1px solid var(--border-color); font-family: var(--font-main);">
+                                <option value="">Same as start</option>
+                            </select>
+                            <div class="overlay-empty" style="margin-top:6px;">Plays from start to end, then returns to this slide.</div>
+                        </div>
+                        <div class="control-group" id="awardSeeMoreTextGroup">
+                            <label class="control-label">Show More Button Text</label>
+                            <input type="text" id="inputAwardSeeMoreText" placeholder="e.g., Show More" oninput="updateCurrentAward('seeMoreText', this.value)">
+                        </div>
+                        <div class="control-group" id="awardBackTextGroup">
+                            <label class="control-label">Back Button Text</label>
+                            <input type="text" id="inputAwardBackText" placeholder="e.g., Back" oninput="updateCurrentAward('backText', this.value)">
+                        </div>
                         <div class="control-group" id="linkedOnlyGroup" style="display:none;">
                             <label class="toggle-row">
                                 <input type="checkbox" id="inputLinkedOnly" onchange="updateCurrentAward('linkedOnly', this.checked)">
@@ -2395,6 +2416,10 @@
                 winnerColor: "#ff3b30",
                 revealText: "Reveal Winner",
                 nextText: "Next Slide",
+                linkedStartAwardId: "",
+                linkedEndAwardId: "",
+                seeMoreText: "Show More",
+                backText: "Back",
                 linkedOnly: false,
                 revealPhotoDelay: null,
                 revealFadeDuration: null,
@@ -2610,6 +2635,16 @@
             updatePanelMeta();
         }
 
+        function syncAwardLinkedUI(award) {
+            if (!award) return;
+            populateTop3LinkedSlideSelect('inputAwardLinkedStart', award, award.linkedStartAwardId, 'None');
+            populateTop3LinkedSlideSelect('inputAwardLinkedEnd', award, award.linkedEndAwardId, 'Same as start');
+            const seeMoreEl = document.getElementById('inputAwardSeeMoreText');
+            if (seeMoreEl) seeMoreEl.value = award.seeMoreText || "Show More";
+            const backEl = document.getElementById('inputAwardBackText');
+            if (backEl) backEl.value = award.backText || "Back";
+        }
+
         function setTop3EditIndex(value) {
             const award = getCurrentAward();
             if (!award || award.slideType !== 'top3') return;
@@ -2715,6 +2750,30 @@
             syncTop3UI(award);
         }
 
+        function updateAwardLinkedStart(value) {
+            const award = getCurrentAward();
+            if (!award || award.slideType !== 'award') return;
+            const nextValue = String(value || "");
+            award.linkedStartAwardId = nextValue;
+            if (!nextValue) {
+                award.linkedEndAwardId = "";
+            } else if (!award.linkedEndAwardId) {
+                award.linkedEndAwardId = nextValue;
+            }
+            syncAwardLinkedUI(award);
+        }
+
+        function updateAwardLinkedEnd(value) {
+            const award = getCurrentAward();
+            if (!award || award.slideType !== 'award') return;
+            const nextValue = String(value || "");
+            award.linkedEndAwardId = nextValue;
+            if (nextValue && !award.linkedStartAwardId) {
+                award.linkedStartAwardId = nextValue;
+            }
+            syncAwardLinkedUI(award);
+        }
+
         function refreshEditorMedia() {
             const award = getCurrentAward();
             if (!award) return;
@@ -2778,6 +2837,7 @@
 
         function toggleTop3Controls(award) {
             const showTop3 = award?.slideType === 'top3';
+            const showAward = award?.slideType === 'award';
             const top3Controls = document.getElementById('top3Controls');
             if (top3Controls) {
                 top3Controls.style.display = showTop3 ? 'block' : 'none';
@@ -2786,11 +2846,19 @@
             const winnerNameGroup = document.getElementById('awardWinnerNameGroup');
             const winnerColorGroup = document.getElementById('awardWinnerColorGroup');
             const revealTextGroup = document.getElementById('awardRevealTextGroup');
+            const linkedStartGroup = document.getElementById('awardLinkedStartGroup');
+            const linkedEndGroup = document.getElementById('awardLinkedEndGroup');
+            const seeMoreTextGroup = document.getElementById('awardSeeMoreTextGroup');
+            const backTextGroup = document.getElementById('awardBackTextGroup');
             const nextLabel = document.getElementById('inputNextTextLabel');
             const linkedOnlyGroup = document.getElementById('linkedOnlyGroup');
             if (winnerNameGroup) winnerNameGroup.style.display = showTop3 ? 'none' : 'block';
             if (winnerColorGroup) winnerColorGroup.style.display = showTop3 ? 'none' : 'block';
             if (revealTextGroup) revealTextGroup.style.display = showTop3 ? 'none' : 'block';
+            if (linkedStartGroup) linkedStartGroup.style.display = showAward ? 'block' : 'none';
+            if (linkedEndGroup) linkedEndGroup.style.display = showAward ? 'block' : 'none';
+            if (seeMoreTextGroup) seeMoreTextGroup.style.display = showAward ? 'block' : 'none';
+            if (backTextGroup) backTextGroup.style.display = showAward ? 'block' : 'none';
             if (linkedOnlyGroup) linkedOnlyGroup.style.display = award?.slideType === 'photo' ? 'block' : 'none';
             if (nextLabel) {
                 nextLabel.innerText = showTop3 ? "Post-Final Button Text" : "Next Slide Button Text";
@@ -2943,6 +3011,10 @@
             document.getElementById('inputWinnerColor').value = award.winnerColor || "#ff3b30";
             document.getElementById('inputRevealText').value = award.revealText || "Reveal Winner";
             document.getElementById('inputNextText').value = award.nextText || "Next Slide";
+            const seeMoreTextEl = document.getElementById('inputAwardSeeMoreText');
+            if (seeMoreTextEl) seeMoreTextEl.value = award.seeMoreText || "Show More";
+            const backTextEl = document.getElementById('inputAwardBackText');
+            if (backTextEl) backTextEl.value = award.backText || "Back";
             const linkedOnlyEl = document.getElementById('inputLinkedOnly');
             if (linkedOnlyEl) linkedOnlyEl.checked = award.linkedOnly === true;
             toggleTop3Controls(award);
@@ -2950,6 +3022,7 @@
                 ensureTop3(award);
                 syncTop3UI(award);
             }
+            syncAwardLinkedUI(award);
 
             refreshEditorMedia();
         }
@@ -3179,6 +3252,8 @@
             const current = getCurrentAward();
             if (current?.slideType === 'top3') {
                 syncTop3UI(current);
+            } else if (current?.slideType === 'award') {
+                syncAwardLinkedUI(current);
             }
             renderMenu();
         }
@@ -3755,6 +3830,10 @@
                 winnerColor: normalizeText(source?.winnerColor, base.winnerColor),
                 revealText: normalizeText(source?.revealText, base.revealText),
                 nextText: normalizeText(source?.nextText, base.nextText),
+                linkedStartAwardId: normalizeText(source?.linkedStartAwardId, base.linkedStartAwardId),
+                linkedEndAwardId: normalizeText(source?.linkedEndAwardId, base.linkedEndAwardId),
+                seeMoreText: normalizeText(source?.seeMoreText, base.seeMoreText),
+                backText: normalizeText(source?.backText, base.backText),
                 linkedOnly: source?.linkedOnly === true,
                 revealPhotoDelay: Number.isFinite(revealDelayRaw) ? clampNumber(revealDelayRaw, 0, 10) : null,
                 revealFadeDuration: Number.isFinite(revealFadeRaw) ? clampNumber(revealFadeRaw, 0, 10) : null,
@@ -5456,6 +5535,57 @@
             return { startIndex, endIndex };
         }
 
+        function resolveAwardLinkedRange(award, parentIndex = playerState.currentIndex) {
+            const startId = String(award?.linkedStartAwardId || "").trim();
+            if (!startId) return null;
+            let startIndex = awards.findIndex((item) => item?.id === startId);
+            if (startIndex < 0) return null;
+            const endId = String(award?.linkedEndAwardId || "").trim();
+            let endIndex = startIndex;
+            if (endId) {
+                const foundEnd = awards.findIndex((item) => item?.id === endId);
+                if (foundEnd >= 0) endIndex = foundEnd;
+            }
+            if (endIndex < startIndex) {
+                const swap = startIndex;
+                startIndex = endIndex;
+                endIndex = swap;
+            }
+            const effectiveParent = Number.isFinite(Number(parentIndex)) ? Number(parentIndex) : playerState.currentIndex;
+            if (effectiveParent >= startIndex && effectiveParent <= endIndex) {
+                return null;
+            }
+            return { startIndex, endIndex };
+        }
+
+        function getAwardSeeMoreLabel(award) {
+            const label = String(award?.seeMoreText ?? "").trim();
+            return label || "Show More";
+        }
+
+        function getAwardBackLabel(award) {
+            const label = String(award?.backText ?? "").trim();
+            return label || "Back";
+        }
+
+        function updateSecondaryActionButton(award) {
+            if (playerState.linkedMode && getNextSequenceIndex() !== null) {
+                setTop3SeeMoreButton(playerState.linkedMode.backLabel || "Back", { secondary: true });
+                setNextButtonProminence('primary');
+                return;
+            }
+
+            if (!playerState.linkedMode && award?.slideType === 'award' && playerState.phase === 'revealed') {
+                const hasLinkedRange = !!resolveAwardLinkedRange(award, playerState.currentIndex);
+                setTop3SeeMoreButton(hasLinkedRange ? getAwardSeeMoreLabel(award) : null, { secondary: false });
+                setNextButtonProminence(hasLinkedRange ? 'secondary' : 'primary');
+                return;
+            }
+
+            setTop3SeeMoreButton(null);
+            setNextButtonProminence('primary');
+        }
+
         function isMainRunSkipped(award) {
             return award?.linkedOnly === true;
         }
@@ -5499,11 +5629,7 @@
             return playerState.linkedMode ? (playerState.linkedMode.backLabel || "Back") : "End Show";
         }
 
-        function restoreTop3AfterLinkedPlayback() {
-            const linked = playerState.linkedMode;
-            if (!linked) return;
-            playerState.linkedMode = null;
-
+        function restoreTop3AfterLinkedPlayback(linked) {
             const parentAward = awards[linked.parentAwardIndex];
             if (!parentAward || parentAward.slideType !== 'top3') {
                 setTop3SeeMoreButton(null);
@@ -5554,6 +5680,81 @@
             scheduleAutoAdvanceForAward(parentAward);
         }
 
+        function restoreAwardAfterLinkedPlayback(linked) {
+            const parentAward = awards[linked.parentAwardIndex];
+            if (!parentAward || parentAward.slideType !== 'award') {
+                setTop3SeeMoreButton(null);
+                const nextIndex = getNextSequenceIndex();
+                if (nextIndex !== null) {
+                    startSequence(nextIndex);
+                } else {
+                    endShow();
+                }
+                return;
+            }
+
+            playerState.currentIndex = clampNumber(
+                Number(linked.parentAwardIndex) || 0,
+                0,
+                Math.max(0, awards.length - 1)
+            );
+            playerState.phase = 'revealed';
+            playerState.busy = false;
+            playerState.top3Placed = [];
+            playerState.top3Step = 0;
+            playerState.top3ActiveEntryIndex = null;
+            clearAutoAdvanceTimer();
+
+            const bg = document.getElementById('playerBackground');
+            const img = document.getElementById('playerImageElement');
+            const imgWrap = document.getElementById('playerImageWrap');
+            const textStage = document.getElementById('textStage');
+            hideTop3Stage();
+            hideTop3RevealBadge();
+            resetOverlayContainer();
+
+            document.getElementById('playerCategory').innerText = parentAward.categoryLine || "And the award for";
+            document.getElementById('playerTitle').innerText = parentAward.title;
+            const subLineEl = document.getElementById('playerSubLine');
+            subLineEl.innerText = parentAward.subLine || "";
+            subLineEl.style.display = parentAward.subLine ? 'block' : 'none';
+            const winnerEl = document.getElementById('playerWinner');
+            winnerEl.innerText = parentAward.winner || "";
+            winnerEl.style.color = parentAward.winnerColor || "#ff3b30";
+            winnerEl.style.visibility = parentAward.winner ? 'visible' : 'hidden';
+            winnerEl.classList.remove('animate-in');
+
+            if (textStage) textStage.classList.add('faded-out');
+            imgWrap.classList.remove('ken-burns', 'ken-burns-fixate');
+            if (parentAward.image) {
+                img.src = parentAward.image;
+                img.style.objectFit = getImageFit(parentAward);
+                img.style.transform = `translate(${parentAward.transform.x}px, ${parentAward.transform.y}px) scale(${parentAward.transform.scale})`;
+                applyKenBurns(imgWrap, parentAward);
+                applyPhotoFadeDuration(parentAward);
+                bg.classList.add('active');
+            } else {
+                img.src = "";
+                bg.classList.remove('active');
+            }
+
+            scheduleOverlays(parentAward);
+            updateNextButton(getAdvanceActionLabel(parentAward), getAdvanceActionType());
+            updateSecondaryActionButton(parentAward);
+            scheduleAutoAdvanceForAward(parentAward);
+        }
+
+        function restoreLinkedPlayback() {
+            const linked = playerState.linkedMode;
+            if (!linked) return;
+            playerState.linkedMode = null;
+            if (linked.parentType === 'award') {
+                restoreAwardAfterLinkedPlayback(linked);
+                return;
+            }
+            restoreTop3AfterLinkedPlayback(linked);
+        }
+
         function continueSequenceOrExit() {
             const nextIndex = getNextSequenceIndex();
             if (nextIndex !== null) {
@@ -5563,7 +5764,7 @@
             }
             if (playerState.linkedMode) {
                 playSoundEffect('advance');
-                restoreTop3AfterLinkedPlayback();
+                restoreLinkedPlayback();
                 return;
             }
             endShow();
@@ -5572,11 +5773,36 @@
         function openTop3SeeMore() {
             if (playerState.busy || playerState.phase === 'revealing') return;
             if (playerState.linkedMode) {
-                restoreTop3AfterLinkedPlayback();
+                restoreLinkedPlayback();
                 return;
             }
             const award = awards[playerState.currentIndex];
-            if (!award || award.slideType !== 'top3') return;
+            if (!award) return;
+
+            if (award.slideType === 'award') {
+                if (playerState.phase !== 'revealed') return;
+                const range = resolveAwardLinkedRange(award, playerState.currentIndex);
+                if (!range) {
+                    setTop3SeeMoreButton(null);
+                    setNextButtonProminence('primary');
+                    showToast("No linked slideshow for this slide.");
+                    return;
+                }
+                playerState.linkedMode = {
+                    parentType: 'award',
+                    parentAwardIndex: playerState.currentIndex,
+                    parentPhase: playerState.phase,
+                    backLabel: getAwardBackLabel(award),
+                    startIndex: range.startIndex,
+                    endIndex: range.endIndex
+                };
+                clearAutoAdvanceTimer();
+                resetPlayerControlButtons();
+                startSequence(range.startIndex, { keepLinkedMode: true });
+                return;
+            }
+
+            if (award.slideType !== 'top3') return;
             ensureTop3(award);
             const count = getTop3Count(award);
             let entryIndex = Number(playerState.top3ActiveEntryIndex);
@@ -5594,6 +5820,7 @@
             }
 
             playerState.linkedMode = {
+                parentType: 'top3',
                 parentAwardIndex: playerState.currentIndex,
                 parentEntryIndex: entryIndex,
                 parentTop3Step: playerState.top3Step,
@@ -6052,12 +6279,7 @@
                     isPhotoOnly ? nextLabel : (award.revealText || "Reveal Winner"),
                     isPhotoOnly ? getAdvanceActionType() : 'reveal'
                 );
-                setNextButtonProminence('primary');
-                if (playerState.linkedMode && getNextSequenceIndex() !== null) {
-                    setTop3SeeMoreButton(playerState.linkedMode.backLabel || "Back", { secondary: true });
-                } else {
-                    setTop3SeeMoreButton(null);
-                }
+                updateSecondaryActionButton(award);
 
                 document.getElementById('playerImageWrap').classList.remove('ken-burns', 'ken-burns-fixate');
 
@@ -6077,6 +6299,7 @@
                         playSoundEffect('reveal');
 
                         playerState.phase = 'revealed';
+                        updateSecondaryActionButton(award);
                         btn.disabled = false;
                         scheduleAutoAdvanceForAward(award);
                     }, revealDelayMs);
@@ -6136,6 +6359,7 @@
                     // Update Button
                     updateNextButton(getAdvanceActionLabel(award), getAdvanceActionType());
                     playerState.phase = 'revealed';
+                    updateSecondaryActionButton(award);
                     scheduleAutoAdvanceForAward(award);
                     // Fade out text a bit sooner after reveal
                     setTimeout(() => {
@@ -7850,6 +8074,57 @@
                 return { startIndex, endIndex };
             }
 
+            function resolveAwardLinkedRange(award, parentIndex) {
+                const startId = String(award?.linkedStartAwardId || '').trim();
+                if (!startId) return null;
+                let startIndex = awards.findIndex((item) => item?.id === startId);
+                if (startIndex < 0) return null;
+                const endId = String(award?.linkedEndAwardId || '').trim();
+                let endIndex = startIndex;
+                if (endId) {
+                    const foundEnd = awards.findIndex((item) => item?.id === endId);
+                    if (foundEnd >= 0) endIndex = foundEnd;
+                }
+                if (endIndex < startIndex) {
+                    const swap = startIndex;
+                    startIndex = endIndex;
+                    endIndex = swap;
+                }
+                const effectiveParent = Number.isFinite(Number(parentIndex)) ? Number(parentIndex) : playerState.currentIndex;
+                if (effectiveParent >= startIndex && effectiveParent <= endIndex) {
+                    return null;
+                }
+                return { startIndex, endIndex };
+            }
+
+            function getAwardSeeMoreLabel(award) {
+                const label = String(award?.seeMoreText ?? '').trim();
+                return label || 'Show More';
+            }
+
+            function getAwardBackLabel(award) {
+                const label = String(award?.backText ?? '').trim();
+                return label || 'Back';
+            }
+
+            function updateSecondaryActionButton(award) {
+                if (playerState.linkedMode && getNextSequenceIndex() !== null) {
+                    setTop3SeeMoreButton(playerState.linkedMode.backLabel || 'Back', { secondary: true });
+                    setNextButtonProminence('primary');
+                    return;
+                }
+
+                if (!playerState.linkedMode && award?.slideType === 'award' && playerState.phase === 'revealed') {
+                    const hasLinkedRange = !!resolveAwardLinkedRange(award, playerState.currentIndex);
+                    setTop3SeeMoreButton(hasLinkedRange ? getAwardSeeMoreLabel(award) : null, { secondary: false });
+                    setNextButtonProminence(hasLinkedRange ? 'secondary' : 'primary');
+                    return;
+                }
+
+                setTop3SeeMoreButton(null);
+                setNextButtonProminence('primary');
+            }
+
             function isMainRunSkipped(award) {
                 return award?.linkedOnly === true;
             }
@@ -7893,11 +8168,7 @@
                 return playerState.linkedMode ? (playerState.linkedMode.backLabel || 'Back') : 'End Show';
             }
 
-            function restoreTop3AfterLinkedPlayback() {
-                const linked = playerState.linkedMode;
-                if (!linked) return;
-                playerState.linkedMode = null;
-
+            function restoreTop3AfterLinkedPlayback(linked) {
                 const parentAward = awards[linked.parentAwardIndex];
                 if (!parentAward || parentAward.slideType !== 'top3') {
                     setTop3SeeMoreButton(null);
@@ -7948,6 +8219,81 @@
                 scheduleAutoAdvanceForAward(parentAward);
             }
 
+            function restoreAwardAfterLinkedPlayback(linked) {
+                const parentAward = awards[linked.parentAwardIndex];
+                if (!parentAward || parentAward.slideType !== 'award') {
+                    setTop3SeeMoreButton(null);
+                    const nextIndex = getNextSequenceIndex();
+                    if (nextIndex !== null) {
+                        startSequence(nextIndex);
+                    } else {
+                        endShow();
+                    }
+                    return;
+                }
+
+                playerState.currentIndex = clampNumber(
+                    Number(linked.parentAwardIndex) || 0,
+                    0,
+                    Math.max(0, awards.length - 1)
+                );
+                playerState.phase = 'revealed';
+                playerState.busy = false;
+                playerState.top3Placed = [];
+                playerState.top3Step = 0;
+                playerState.top3ActiveEntryIndex = null;
+                clearAutoAdvanceTimer();
+
+                const bg = document.getElementById('playerBackground');
+                const img = document.getElementById('playerImageElement');
+                const imgWrap = document.getElementById('playerImageWrap');
+                const textStage = document.getElementById('textStage');
+                hideTop3Stage();
+                hideTop3RevealBadge();
+                resetOverlayContainer();
+
+                document.getElementById('playerCategory').innerText = parentAward.categoryLine || 'And the award for';
+                document.getElementById('playerTitle').innerText = parentAward.title;
+                const subLineEl = document.getElementById('playerSubLine');
+                subLineEl.innerText = parentAward.subLine || '';
+                subLineEl.style.display = parentAward.subLine ? 'block' : 'none';
+                const winnerEl = document.getElementById('playerWinner');
+                winnerEl.innerText = parentAward.winner || '';
+                winnerEl.style.color = parentAward.winnerColor || '#ff3b30';
+                winnerEl.style.visibility = parentAward.winner ? 'visible' : 'hidden';
+                winnerEl.classList.remove('animate-in');
+
+                if (textStage) textStage.classList.add('faded-out');
+                imgWrap.classList.remove('ken-burns', 'ken-burns-fixate');
+                if (parentAward.image) {
+                    img.src = parentAward.image;
+                    img.style.objectFit = getImageFit(parentAward);
+                    img.style.transform = 'translate(' + parentAward.transform.x + 'px, ' + parentAward.transform.y + 'px) scale(' + parentAward.transform.scale + ')';
+                    applyKenBurns(imgWrap, parentAward);
+                    applyPhotoFadeDuration(parentAward);
+                    bg.classList.add('active');
+                } else {
+                    img.src = '';
+                    bg.classList.remove('active');
+                }
+
+                scheduleOverlays(parentAward);
+                updateNextButton(getAdvanceActionLabel(parentAward), getAdvanceActionType());
+                updateSecondaryActionButton(parentAward);
+                scheduleAutoAdvanceForAward(parentAward);
+            }
+
+            function restoreLinkedPlayback() {
+                const linked = playerState.linkedMode;
+                if (!linked) return;
+                playerState.linkedMode = null;
+                if (linked.parentType === 'award') {
+                    restoreAwardAfterLinkedPlayback(linked);
+                    return;
+                }
+                restoreTop3AfterLinkedPlayback(linked);
+            }
+
             function continueSequenceOrExit() {
                 const nextIndex = getNextSequenceIndex();
                 if (nextIndex !== null) {
@@ -7957,7 +8303,7 @@
                 }
                 if (playerState.linkedMode) {
                     playSoundEffect('advance');
-                    restoreTop3AfterLinkedPlayback();
+                    restoreLinkedPlayback();
                     return;
                 }
                 endShow();
@@ -7966,11 +8312,35 @@
             function openTop3SeeMore() {
                 if (playerState.busy || playerState.phase === 'revealing') return;
                 if (playerState.linkedMode) {
-                    restoreTop3AfterLinkedPlayback();
+                    restoreLinkedPlayback();
                     return;
                 }
                 const award = awards[playerState.currentIndex];
-                if (!award || award.slideType !== 'top3') return;
+                if (!award) return;
+
+                if (award.slideType === 'award') {
+                    if (playerState.phase !== 'revealed') return;
+                    const range = resolveAwardLinkedRange(award, playerState.currentIndex);
+                    if (!range) {
+                        setTop3SeeMoreButton(null);
+                        setNextButtonProminence('primary');
+                        return;
+                    }
+                    playerState.linkedMode = {
+                        parentType: 'award',
+                        parentAwardIndex: playerState.currentIndex,
+                        parentPhase: playerState.phase,
+                        backLabel: getAwardBackLabel(award),
+                        startIndex: range.startIndex,
+                        endIndex: range.endIndex
+                    };
+                    clearAutoAdvanceTimer();
+                    resetPlayerControlButtons();
+                    startSequence(range.startIndex, { keepLinkedMode: true });
+                    return;
+                }
+
+                if (award.slideType !== 'top3') return;
                 ensureTop3(award);
                 const count = getTop3Count(award);
                 let entryIndex = Number(playerState.top3ActiveEntryIndex);
@@ -7986,6 +8356,7 @@
                     return;
                 }
                 playerState.linkedMode = {
+                    parentType: 'top3',
                     parentAwardIndex: playerState.currentIndex,
                     parentEntryIndex: entryIndex,
                     parentTop3Step: playerState.top3Step,
@@ -8475,12 +8846,7 @@
                         isPhotoOnly ? nextLabel : (award.revealText || 'Reveal Winner'),
                         isPhotoOnly ? getAdvanceActionType() : 'reveal'
                     );
-                    setNextButtonProminence('primary');
-                    if (playerState.linkedMode && getNextSequenceIndex() !== null) {
-                        setTop3SeeMoreButton(playerState.linkedMode.backLabel || 'Back', { secondary: true });
-                    } else {
-                        setTop3SeeMoreButton(null);
-                    }
+                    updateSecondaryActionButton(award);
 
                     document.getElementById('playerImageWrap').classList.remove('ken-burns', 'ken-burns-fixate');
 
@@ -8500,6 +8866,7 @@
                             playSoundEffect('reveal');
 
                             playerState.phase = 'revealed';
+                            updateSecondaryActionButton(award);
                             btn.disabled = false;
                             scheduleAutoAdvanceForAward(award);
                         }, revealDelayMs);
@@ -8556,6 +8923,7 @@
                         scheduleOverlays(award);
                         updateNextButton(getAdvanceActionLabel(award), getAdvanceActionType());
                         playerState.phase = 'revealed';
+                        updateSecondaryActionButton(award);
                         scheduleAutoAdvanceForAward(award);
                         setTimeout(() => {
                             textStage.classList.add('faded-out');

@@ -132,6 +132,10 @@
                 linkedOnly: false,
                 revealPhotoDelay: null,
                 revealFadeDuration: null,
+                revealFadeOutDuration: null,
+                slideAutoAdvance: null,
+                slideAutoAdvanceDelay: null,
+                slideShowControls: null,
                 overlays: [],
                 image: "", // Base64
                 imageFit: "contain",
@@ -630,10 +634,55 @@
             return Number.isFinite(Number(value));
         }
 
+        function hasBooleanSlideTimingValue(value) {
+            return value === true || value === false;
+        }
+
+        function getSlideAutoAdvanceEnabled(award) {
+            if (award?.slideAutoAdvance === true || award?.slideAutoAdvance === false) {
+                return award.slideAutoAdvance;
+            }
+            return !!showSettings.autoAdvance;
+        }
+
+        function getSlideAutoAdvanceDefaultDelaySec(award) {
+            if (!award) return clampNumber(Number(showSettings.autoAdvanceAward) || 6, 1, 60);
+            if (award.slideType === 'top3') {
+                return clampNumber(Number(showSettings.autoAdvanceTopStep) || 3, 1, 60);
+            }
+            if (isPhotoLikeSlideType(award.slideType)) {
+                return clampNumber(Number(showSettings.autoAdvancePhoto) || 6, 1, 60);
+            }
+            return clampNumber(Number(showSettings.autoAdvanceAward) || 6, 1, 60);
+        }
+
+        function getSlideAutoAdvanceDelaySec(award) {
+            if (hasFiniteSlideTimingValue(award?.slideAutoAdvanceDelay)) {
+                return clampNumber(Number(award.slideAutoAdvanceDelay), 1, 60);
+            }
+            return getSlideAutoAdvanceDefaultDelaySec(award);
+        }
+
+        function getSlideShowControlsEnabled(award) {
+            if (award?.slideShowControls === true || award?.slideShowControls === false) {
+                return award.slideShowControls;
+            }
+            return true;
+        }
+
         function hasSlideTimingOverride(award) {
             const delay = award?.revealPhotoDelay;
             const fade = award?.revealFadeDuration;
-            return hasFiniteSlideTimingValue(delay) || hasFiniteSlideTimingValue(fade);
+            const fadeOut = award?.revealFadeOutDuration;
+            const autoAdvanceDelay = award?.slideAutoAdvanceDelay;
+            const autoAdvance = award?.slideAutoAdvance;
+            const showControls = award?.slideShowControls;
+            return hasFiniteSlideTimingValue(delay)
+                || hasFiniteSlideTimingValue(fade)
+                || hasFiniteSlideTimingValue(fadeOut)
+                || hasFiniteSlideTimingValue(autoAdvanceDelay)
+                || hasBooleanSlideTimingValue(autoAdvance)
+                || hasBooleanSlideTimingValue(showControls);
         }
 
         function syncSlideTimingUI(award) {
@@ -641,9 +690,17 @@
             const toggleEl = document.getElementById('inputSlideTimingOverride');
             const delayEl = document.getElementById('inputRevealPhotoDelay');
             const fadeEl = document.getElementById('inputRevealPhotoFade');
+            const fadeOutEl = document.getElementById('inputRevealPhotoFadeOut');
+            const autoAdvanceEl = document.getElementById('inputSlideAutoAdvance');
+            const autoAdvanceDelayEl = document.getElementById('inputSlideAutoAdvanceDelay');
+            const showControlsEl = document.getElementById('inputSlideShowControls');
             const hintEl = document.getElementById('slideTimingHint');
             const delayGroup = document.getElementById('slideTimingRevealGroup');
             const fadeGroup = document.getElementById('slideTimingFadeGroup');
+            const fadeOutGroup = document.getElementById('slideTimingFadeOutGroup');
+            const autoAdvanceToggleGroup = document.getElementById('slideTimingAutoAdvanceToggleGroup');
+            const autoAdvanceDelayGroup = document.getElementById('slideTimingAutoAdvanceDelayGroup');
+            const showControlsGroup = document.getElementById('slideTimingButtonsGroup');
             if (!current) {
                 if (toggleEl) {
                     toggleEl.checked = false;
@@ -657,22 +714,58 @@
                     fadeEl.value = '';
                     fadeEl.disabled = true;
                 }
+                if (fadeOutEl) {
+                    fadeOutEl.value = '';
+                    fadeOutEl.disabled = true;
+                }
+                if (autoAdvanceEl) {
+                    autoAdvanceEl.checked = !!showSettings.autoAdvance;
+                    autoAdvanceEl.disabled = true;
+                }
+                if (autoAdvanceDelayEl) {
+                    autoAdvanceDelayEl.value = '';
+                    autoAdvanceDelayEl.disabled = true;
+                }
+                if (showControlsEl) {
+                    showControlsEl.checked = true;
+                    showControlsEl.disabled = true;
+                }
                 if (delayGroup) delayGroup.classList.add('is-disabled');
                 if (fadeGroup) fadeGroup.classList.add('is-disabled');
+                if (fadeOutGroup) fadeOutGroup.classList.add('is-disabled');
+                if (autoAdvanceToggleGroup) autoAdvanceToggleGroup.classList.add('is-disabled');
+                if (autoAdvanceDelayGroup) autoAdvanceDelayGroup.classList.add('is-disabled');
+                if (showControlsGroup) showControlsGroup.classList.add('is-disabled');
                 if (hintEl) hintEl.innerText = "Select a slide to edit timing.";
                 return;
             }
             const enabled = hasSlideTimingOverride(current);
+            const slideAutoAdvanceEnabled = getSlideAutoAdvanceEnabled(current);
+            const showControlsEnabled = getSlideShowControlsEnabled(current);
             if (toggleEl) {
                 toggleEl.checked = enabled;
                 toggleEl.disabled = false;
             }
             if (delayGroup) delayGroup.classList.toggle('is-disabled', !enabled);
             if (fadeGroup) fadeGroup.classList.toggle('is-disabled', !enabled);
+            if (fadeOutGroup) fadeOutGroup.classList.toggle('is-disabled', !enabled);
+            if (autoAdvanceToggleGroup) autoAdvanceToggleGroup.classList.toggle('is-disabled', !enabled);
+            if (autoAdvanceDelayGroup) autoAdvanceDelayGroup.classList.toggle('is-disabled', !enabled || !slideAutoAdvanceEnabled);
+            if (showControlsGroup) showControlsGroup.classList.toggle('is-disabled', !enabled);
             if (delayEl) delayEl.disabled = !enabled;
             if (fadeEl) fadeEl.disabled = !enabled;
+            if (fadeOutEl) fadeOutEl.disabled = !enabled;
+            if (autoAdvanceEl) autoAdvanceEl.disabled = !enabled;
+            if (autoAdvanceDelayEl) autoAdvanceDelayEl.disabled = !enabled || !slideAutoAdvanceEnabled;
+            if (showControlsEl) showControlsEl.disabled = !enabled;
             if (hintEl) {
-                hintEl.innerText = enabled ? "Editing per-slide timing overrides." : "Uses show defaults. Toggle to override.";
+                if (!enabled) {
+                    hintEl.innerText = "Uses show defaults. Toggle to override.";
+                } else if (!showControlsEnabled && !slideAutoAdvanceEnabled) {
+                    hintEl.innerText = "Buttons are hidden and auto-advance is off. Use keyboard (Space/Enter/Right Arrow) to continue.";
+                } else {
+                    hintEl.innerText = "Editing per-slide timing and playback overrides.";
+                }
             }
             if (enabled) {
                 const delayValue = hasFiniteSlideTimingValue(current.revealPhotoDelay)
@@ -681,11 +774,25 @@
                 const fadeValue = hasFiniteSlideTimingValue(current.revealFadeDuration)
                     ? clampNumber(Number(current.revealFadeDuration), 0, 10)
                     : getPhotoFadeDurationSec(current);
+                const fadeOutValue = hasFiniteSlideTimingValue(current.revealFadeOutDuration)
+                    ? clampNumber(Number(current.revealFadeOutDuration), 0, 10)
+                    : getPhotoFadeOutDurationSec(current);
+                const autoAdvanceDelayValue = hasFiniteSlideTimingValue(current.slideAutoAdvanceDelay)
+                    ? clampNumber(Number(current.slideAutoAdvanceDelay), 1, 60)
+                    : getSlideAutoAdvanceDelaySec(current);
                 if (delayEl) delayEl.value = delayValue;
                 if (fadeEl) fadeEl.value = fadeValue;
+                if (fadeOutEl) fadeOutEl.value = fadeOutValue;
+                if (autoAdvanceEl) autoAdvanceEl.checked = slideAutoAdvanceEnabled;
+                if (autoAdvanceDelayEl) autoAdvanceDelayEl.value = autoAdvanceDelayValue;
+                if (showControlsEl) showControlsEl.checked = showControlsEnabled;
             } else {
                 if (delayEl) delayEl.value = '';
                 if (fadeEl) fadeEl.value = '';
+                if (fadeOutEl) fadeOutEl.value = '';
+                if (autoAdvanceEl) autoAdvanceEl.checked = !!showSettings.autoAdvance;
+                if (autoAdvanceDelayEl) autoAdvanceDelayEl.value = '';
+                if (showControlsEl) showControlsEl.checked = true;
             }
         }
 
@@ -695,9 +802,17 @@
             if (!enabled) {
                 award.revealPhotoDelay = null;
                 award.revealFadeDuration = null;
+                award.revealFadeOutDuration = null;
+                award.slideAutoAdvance = null;
+                award.slideAutoAdvanceDelay = null;
+                award.slideShowControls = null;
             } else {
                 award.revealPhotoDelay = getPhotoRevealDelaySec(award);
                 award.revealFadeDuration = getPhotoFadeDurationSec(award);
+                award.revealFadeOutDuration = getPhotoFadeOutDurationSec(award);
+                award.slideAutoAdvance = getSlideAutoAdvanceEnabled(award);
+                award.slideAutoAdvanceDelay = getSlideAutoAdvanceDelaySec(award);
+                award.slideShowControls = getSlideShowControlsEnabled(award);
             }
             syncSlideTimingUI(award);
         }
@@ -768,6 +883,9 @@
                     renderList();
                     updatePanelMeta();
                 }
+                if (key === 'slideAutoAdvance' || key === 'slideShowControls') {
+                    syncSlideTimingUI(award);
+                }
             }
         }
 
@@ -777,13 +895,13 @@
             const n = parseFloat(value);
             if (!Number.isFinite(n)) {
                 award[key] = null;
-                if (key === 'revealPhotoDelay' || key === 'revealFadeDuration') {
+                if (key === 'revealPhotoDelay' || key === 'revealFadeDuration' || key === 'revealFadeOutDuration' || key === 'slideAutoAdvanceDelay') {
                     syncSlideTimingUI(award);
                 }
                 return;
             }
             award[key] = clampNumber(n, min, max);
-            if (key === 'revealPhotoDelay' || key === 'revealFadeDuration') {
+            if (key === 'revealPhotoDelay' || key === 'revealFadeDuration' || key === 'revealFadeOutDuration' || key === 'slideAutoAdvanceDelay') {
                 syncSlideTimingUI(award);
             }
         }
@@ -1457,6 +1575,10 @@
             const overlays = rawOverlays.map((overlay, idx) => normalizeOverlay(overlay, idx));
             const revealDelayRaw = normalizeNumber(source?.revealPhotoDelay, base.revealPhotoDelay);
             const revealFadeRaw = normalizeNumber(source?.revealFadeDuration, base.revealFadeDuration);
+            const revealFadeOutRaw = normalizeNumber(source?.revealFadeOutDuration, base.revealFadeOutDuration);
+            const slideAutoAdvanceDelayRaw = normalizeNumber(source?.slideAutoAdvanceDelay, base.slideAutoAdvanceDelay);
+            const slideAutoAdvanceRaw = source?.slideAutoAdvance;
+            const slideShowControlsRaw = source?.slideShowControls;
 
             return {
                 ...base,
@@ -1475,6 +1597,10 @@
                 linkedOnly: source?.linkedOnly === true,
                 revealPhotoDelay: Number.isFinite(revealDelayRaw) ? clampNumber(revealDelayRaw, 0, 10) : null,
                 revealFadeDuration: Number.isFinite(revealFadeRaw) ? clampNumber(revealFadeRaw, 0, 10) : null,
+                revealFadeOutDuration: Number.isFinite(revealFadeOutRaw) ? clampNumber(revealFadeOutRaw, 0, 10) : null,
+                slideAutoAdvance: slideAutoAdvanceRaw === true ? true : (slideAutoAdvanceRaw === false ? false : null),
+                slideAutoAdvanceDelay: Number.isFinite(slideAutoAdvanceDelayRaw) ? clampNumber(slideAutoAdvanceDelayRaw, 1, 60) : null,
+                slideShowControls: slideShowControlsRaw === true ? true : (slideShowControlsRaw === false ? false : null),
                 overlays,
                 image: normalizeText(source?.image, base.image),
                 imageFit: normalizeImageFit(source?.imageFit || base.imageFit),

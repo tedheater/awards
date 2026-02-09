@@ -395,10 +395,10 @@
                     <details class="control-section">
                         <summary>Timing Overrides</summary>
                         <div class="control-group">
-                            <label class="control-label">Per-Slide Timing</label>
+                            <label class="control-label">Per-Slide Timing & Playback</label>
                             <label class="toggle-row">
                                 <input type="checkbox" id="inputSlideTimingOverride" onchange="toggleSlideTimingOverride(this.checked)">
-                                Override show timing for this slide
+                                Override show defaults for this slide
                             </label>
                             <div id="slideTimingHint" class="overlay-empty" style="margin-top:6px;">Uses show defaults until enabled.</div>
                         </div>
@@ -407,8 +407,30 @@
                             <input type="number" id="inputRevealPhotoDelay" min="0" max="10" step="0.1" placeholder="Use show default" oninput="updateCurrentAwardNumber('revealPhotoDelay', this.value, 0, 10)">
                         </div>
                         <div class="control-group" id="slideTimingFadeGroup">
-                            <label class="control-label">Fade Duration (Seconds)</label>
+                            <label class="control-label">Fade-In Duration (Seconds)</label>
                             <input type="number" id="inputRevealPhotoFade" min="0" max="10" step="0.1" placeholder="Use show default" oninput="updateCurrentAwardNumber('revealFadeDuration', this.value, 0, 10)">
+                        </div>
+                        <div class="control-group" id="slideTimingFadeOutGroup">
+                            <label class="control-label">Fade-Out Duration (Seconds)</label>
+                            <input type="number" id="inputRevealPhotoFadeOut" min="0" max="10" step="0.1" placeholder="Use show default" oninput="updateCurrentAwardNumber('revealFadeOutDuration', this.value, 0, 10)">
+                        </div>
+                        <div class="control-group" id="slideTimingAutoAdvanceToggleGroup">
+                            <label class="control-label">Auto-Advance</label>
+                            <label class="toggle-row">
+                                <input type="checkbox" id="inputSlideAutoAdvance" onchange="updateCurrentAward('slideAutoAdvance', this.checked); syncSlideTimingUI()">
+                                Auto-advance this slide
+                            </label>
+                        </div>
+                        <div class="control-group" id="slideTimingAutoAdvanceDelayGroup">
+                            <label class="control-label">Auto-Advance Duration (Seconds)</label>
+                            <input type="number" id="inputSlideAutoAdvanceDelay" min="1" max="60" step="1" placeholder="Use show default" oninput="updateCurrentAwardNumber('slideAutoAdvanceDelay', this.value, 1, 60); syncSlideTimingUI()">
+                        </div>
+                        <div class="control-group" id="slideTimingButtonsGroup">
+                            <label class="control-label">Buttons</label>
+                            <label class="toggle-row">
+                                <input type="checkbox" id="inputSlideShowControls" onchange="updateCurrentAward('slideShowControls', this.checked); syncSlideTimingUI()">
+                                Show on-screen buttons for this slide
+                            </label>
                         </div>
                     </details>
                 </section>

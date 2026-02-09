@@ -260,7 +260,6 @@
 
         function scheduleAutoAdvance(delaySec) {
             clearAutoAdvanceTimer();
-            if (!showSettings.autoAdvance) return;
             const delayMs = Math.max(0, Number(delaySec || 0) * 1000);
             if (!Number.isFinite(delayMs) || delayMs <= 0) return;
             startAutoAdvanceBar(delayMs);
@@ -275,17 +274,47 @@
             return slideType === 'photo' || slideType === 'title-card';
         }
 
+        function getAwardAutoAdvanceEnabled(award) {
+            if (award?.slideAutoAdvance === true || award?.slideAutoAdvance === false) {
+                return award.slideAutoAdvance;
+            }
+            return !!showSettings.autoAdvance;
+        }
+
+        function getAwardAutoAdvanceDelaySec(award) {
+            const override = award?.slideAutoAdvanceDelay;
+            if (override !== null && override !== undefined && Number.isFinite(Number(override))) {
+                return clampNumber(Number(override), 1, 60);
+            }
+            let fallback = showSettings.autoAdvanceAward ?? 6;
+            if (award?.slideType === 'top3') {
+                fallback = showSettings.autoAdvanceTopStep ?? fallback;
+            } else if (isPhotoLikeSlideType(award?.slideType)) {
+                fallback = showSettings.autoAdvancePhoto ?? fallback;
+            }
+            return clampNumber(Number(fallback) || 0, 1, 60);
+        }
+
+        function shouldShowSlideControls(award) {
+            if (award?.slideShowControls === true || award?.slideShowControls === false) {
+                return award.slideShowControls;
+            }
+            return true;
+        }
+
+        function syncPlayerControlsVisibility(award = awards[playerState.currentIndex]) {
+            const controls = document.querySelector('#player-app .player-controls');
+            if (!controls) return;
+            controls.classList.toggle('layout-hidden', !shouldShowSlideControls(award));
+        }
+
         function scheduleAutoAdvanceForAward(award) {
             if (!award) return;
-            if (award.slideType === 'top3') {
-                scheduleAutoAdvance(showSettings.autoAdvanceTopStep ?? 3);
+            if (!getAwardAutoAdvanceEnabled(award)) {
+                clearAutoAdvanceTimer();
                 return;
             }
-            if (isPhotoLikeSlideType(award.slideType)) {
-                scheduleAutoAdvance(showSettings.autoAdvancePhoto ?? 6);
-                return;
-            }
-            scheduleAutoAdvance(showSettings.autoAdvanceAward ?? 6);
+            scheduleAutoAdvance(getAwardAutoAdvanceDelaySec(award));
         }
 
         let soundContext = null;
@@ -340,6 +369,24 @@
             const slideTypeRaw = typeOverride || award?.slideType || 'award';
             const slideType = isPhotoLikeSlideType(slideTypeRaw) ? 'photo' : slideTypeRaw;
             const override = award?.revealFadeDuration;
+            if (override !== null && override !== undefined && Number.isFinite(Number(override))) {
+                return clampNumber(Number(override), 0, 10);
+            }
+            let fallback = 1.5;
+            if (slideType === 'photo') {
+                fallback = showSettings.fadeDurationPhoto ?? fallback;
+            } else if (slideType === 'top3') {
+                fallback = showSettings.fadeDurationTop ?? fallback;
+            } else {
+                fallback = showSettings.fadeDurationAward ?? fallback;
+            }
+            return clampNumber(Number(fallback) || 0, 0, 10);
+        }
+
+        function getPhotoFadeOutDurationSec(award, typeOverride) {
+            const slideTypeRaw = typeOverride || award?.slideType || 'award';
+            const slideType = isPhotoLikeSlideType(slideTypeRaw) ? 'photo' : slideTypeRaw;
+            const override = award?.revealFadeOutDuration;
             if (override !== null && override !== undefined && Number.isFinite(Number(override))) {
                 return clampNumber(Number(override), 0, 10);
             }
@@ -915,6 +962,8 @@
         }
 
         function resetPlayerControlButtons() {
+            const controls = document.querySelector('#player-app .player-controls');
+            if (controls) controls.classList.remove('layout-hidden');
             const btn = document.getElementById('nextBtn');
             if (btn) {
                 btn.classList.remove('visible');
@@ -987,6 +1036,7 @@
             if (playerState.linkedMode && getNextSequenceIndex() !== null) {
                 setTop3SeeMoreButton(playerState.linkedMode.backLabel || "Back", { secondary: true });
                 setNextButtonProminence('primary');
+                syncPlayerControlsVisibility(award);
                 return;
             }
 
@@ -994,11 +1044,13 @@
                 const hasLinkedRange = !!resolveAwardLinkedRange(award, playerState.currentIndex);
                 setTop3SeeMoreButton(hasLinkedRange ? getAwardSeeMoreLabel(award) : null, { secondary: false });
                 setNextButtonProminence(hasLinkedRange ? 'secondary' : 'primary');
+                syncPlayerControlsVisibility(award);
                 return;
             }
 
             setTop3SeeMoreButton(null);
             setNextButtonProminence('primary');
+            syncPlayerControlsVisibility(award);
         }
 
         function isMainRunSkipped(award) {
@@ -1092,6 +1144,7 @@
                 hasLinkedRange ? getTop3Label(parentAward, 'seeMore', place) : null,
                 { secondary: false }
             );
+            syncPlayerControlsVisibility(parentAward);
             scheduleAutoAdvanceForAward(parentAward);
         }
 
@@ -1602,6 +1655,7 @@
             if (!keepLinkedMode) {
                 playerState.linkedMode = null;
             }
+            const previousAward = awards[playerState.currentIndex];
             const maxIndex = Math.max(0, awards.length - 1);
             let resolvedIndex = clampNumber(Number(index) || 0, 0, maxIndex);
             if (!playerState.linkedMode) {
@@ -1633,8 +1687,12 @@
             }
             
             const needsFade = bg.classList.contains('active');
-            const delay = needsFade ? BG_FADE_MS : 0;
+            const fadeOutSec = needsFade ? getPhotoFadeOutDurationSec(previousAward) : 0;
+            const delay = needsFade ? Math.max(0, Math.floor(fadeOutSec * 1000)) : 0;
 
+            if (needsFade) {
+                bg.style.transitionDuration = `${fadeOutSec}s`;
+            }
             bg.classList.remove('active'); // Fade to black
             textStage.classList.add('faded-out'); // Hide text during transition
             resetOverlayContainer();
@@ -1655,6 +1713,7 @@
                         setTop3SeeMoreButton(null);
                     }
                     setNextButtonProminence('primary');
+                    syncPlayerControlsVisibility(award);
                     document.getElementById('playerImageWrap').classList.remove('ken-burns', 'ken-burns-fixate');
                     scheduleAutoAdvanceForAward(award);
                     return;

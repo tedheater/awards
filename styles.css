@@ -912,6 +912,9 @@
             display: flex;
             gap: 15px;
         }
+        .player-controls.layout-hidden {
+            display: none;
+        }
 
         .auto-advance-bar {
             position: fixed;
